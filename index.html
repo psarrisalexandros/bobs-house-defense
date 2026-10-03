@@ -205,7 +205,7 @@ html.phone .toast{font-size:11px;padding:4px 8px;left:6px;right:6px;bottom:6px;b
 .app.land .panel .side{display:block}
 .app.land .panel .tabs{position:sticky;top:-6px;z-index:2;background:var(--desk);padding:6px 0}
 .app.land .panel .nodes{overflow:visible}
-.panel .nodes{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));align-content:start;gap:6px;padding:5px 3px 3px 5px}
+.panel .nodes{flex:1;min-height:0;grid-auto-rows:max-content;overflow-y:auto;-webkit-overflow-scrolling:touch;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));align-content:start;gap:6px;padding:5px 3px 3px 5px}
 .panel .opts{display:flex;gap:6px;flex:none;flex-wrap:wrap}
 .app.land .stage{position:absolute;left:0;top:0;width:var(--sw);max-width:none}
 .app.land .hud{position:absolute;z-index:2;left:6px;top:4px;width:calc(var(--pl) - 12px);padding:2px 8px;background:rgba(22,18,46,.6);border-radius:10px}
@@ -249,9 +249,22 @@ html.phone .panel[hidden]{display:none!important}
 .brief ul{list-style:none;margin:0;padding:0 2px;display:flex;flex-direction:column;gap:5px;max-width:560px;width:100%;min-height:0;overflow-y:auto}
 .brief li{background:var(--paper);color:var(--ink);border:2px solid var(--ink);border-radius:10px;padding:5px 10px;font-weight:700;font-size:13px;line-height:1.3}
 .brief .go{flex:none;font-size:16px;padding:8px 26px}
-.brief .tm{flex:none;width:160px;height:5px;border-radius:3px;background:var(--desk-2);overflow:hidden}
-.brief .tm i{display:block;height:100%;background:var(--plank);width:100%;animation:drain linear forwards}
-@keyframes drain{to{width:0}}
+.brief{cursor:default;padding-right:132px}
+.brief .go{position:absolute;right:max(12px,env(safe-area-inset-right,0px));bottom:14px;min-width:104px;min-height:56px;font-size:20px}
+/* coins: top left, big, with a coin next to the number */
+.hud .stat.coin{align-items:center;gap:7px}
+.hud .stat.coin b{font-size:26px;line-height:1}
+.cn{flex:none;width:24px;height:24px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffe9a6 0 18%,var(--plank) 20% 100%);border:2.5px solid var(--ink);box-shadow:inset 0 0 0 3px #d99a1e,0 0 0 1.5px var(--plank)}
+html.phone .hud .stat.coin{order:-1}
+html.phone .hud .stat.coin b{font-size:24px}
+html.phone .cn{width:22px;height:22px}
+/* phone: Start sits under the right thumb, the speed button in the top right corner */
+html.phone #startBtn,html.phone #againBtn{position:fixed;z-index:6;right:max(10px,env(safe-area-inset-right,0px));bottom:max(12px,env(safe-area-inset-bottom,0px));min-height:58px;font-size:18px;padding:10px 22px}
+.app.land .panel{padding-bottom:84px}
+.app.port .panel .nodes{padding-bottom:84px}
+.app.land .bars{width:calc(54% - 118px)}
+.app.land #speedBtn{position:fixed;z-index:5;top:4px;right:max(8px,env(safe-area-inset-right,0px));width:100px;min-height:34px;margin:0;font-size:17px}
+.app.port #speedBtn{min-width:64px;min-height:38px;font-size:17px}
 </style>
 </head>
 <body>
@@ -260,9 +273,9 @@ html.phone .panel[hidden]{display:none!important}
   <main class="mid">
     <header class="hud">
       <h1>Bob's <span>House Defense</span></h1>
+      <div class="stat coin" aria-label="Coins"><span class="cn" aria-hidden="true"></span><b id="hudCoins">0</b></div>
       <div class="stat"><span class="lbl">Wave</span><b id="hudWave">1</b></div>
       <div class="stat"><span class="lbl">Zombies</span><b id="hudLeft">0</b></div>
-      <div class="stat coin"><span class="lbl">Coins</span><b id="hudCoins">0</b></div>
       <button class="tog speed" id="speedBtn" type="button" aria-label="Game speed">x1</button>
       <button class="tog" id="shopBtn" type="button" aria-pressed="false" hidden>Upgrades</button>
       <button class="tog" id="autoBtn" type="button" aria-pressed="false">Continuous waves</button>
@@ -512,7 +525,7 @@ const NODES=[
     {nm:'The piano',ds:'Every fourth throw is a piano',wave:64,msg:'John found the piano. Every fourth throw flattens a whole group.'}]},
 
   {id:'maria',tree:'crew',nm:'Grandma Maria',cost:60,grow:1.6,steps:[
-    {nm:'at the ground floor window',ds:'Hits anything that reaches the house with her rolling pin',wave:4,msg:'Grandma Maria came to help. Nobody gets past her rolling pin.'},
+    {nm:'at the ground floor window',ds:'Throws her rolling pin at whatever gets closest to the house',wave:4,msg:'Grandma Maria came to help. She throws her rolling pin, and she never misses.'},
     {nm:'Soup',ds:'Everyone in the house shoots 10% faster',wave:12,msg:'Grandma Maria made soup. Everyone works faster on a full stomach.'},
     {nm:'First aid',ds:'The house slowly repairs itself during a wave',wave:26,msg:'Grandma Maria opened her first-aid cupboard. The house patches itself up as it goes.'}]},
   {id:'niko',tree:'crew',nm:'Niko',cost:90,grow:1.6,req:[['floors',2]],steps:[
@@ -760,6 +773,10 @@ function land(t,alive){
     G.clouds.push({x,R:75,t:1,dps:0,pct:0,c:'#9fd8ff'});
   }else if(k===12)G.clouds.push({x,R:72,t:6,dps:10*dmgMul(),pct:.04,c:'#b06fd8'});
   else if(k===20){G.shake=.15;explode(x,GROUND-10,72,50*dmgMul(),ground,.1);}
+  else if(k===30){   /* Grandma Maria's rolling pin: one zombie, the one she aimed at */
+    const z=ground.indexOf(t.z)>=0?t.z:ground.filter(q=>Math.abs(q.x-x)<50+q.r).sort((a,b)=>Math.abs(a.x-x)-Math.abs(b.x-x))[0];
+    if(z){hit(z,30*dmgMul());if(!G.sim){G.texts.push({x:z.x,y:z.y-z.h-6,s:'BONK!',c:'#f2c14e',t:.6});for(let i=0;i<4;i++)G.parts.push({x:z.x,y:z.y-z.h*.8,vx:(Math.random()-.5)*200,vy:-Math.random()*180,t:.4,c:'#b9824a',s:3+Math.random()*3});}}
+  }
 }
 
 /* ---------- simulation ---------- */
@@ -902,7 +919,7 @@ function update(dt){
     // the five neighbors at the back windows
     if(tl('maria')){
       G.mariaT-=dt;if(G.mariaSwing>0)G.mariaSwing-=dt;
-      if(G.mariaT<=0){G.mariaT=1.2;const at=alive.filter(z=>!z.fly&&z.x<HOUSE_STOP+70)[0];if(at){hit(at,24*dmgMul());G.mariaSwing=.25;}}
+      if(G.mariaT<=0){G.mariaT=1.5;const at=alive.filter(z=>!z.fly&&z.x<FENCE_X+140).sort((a,b)=>a.x-b.x)[0];if(at){G.throws.push({x0:84,y0:GROUND-30,x1:at.x,t:0,dur:.55,kind:30,z:at});G.mariaSwing=.55;}}
       if(tl('maria')>=3&&G.house<houseMax())G.house=Math.min(houseMax(),G.house+2*dt);
     }
     if(tl('niko')){
@@ -1816,6 +1833,7 @@ function drawItem(x,y,kind,rot){
   else if(kind===3){rr(-13,-14,26,28,3);fs('#fff1d0',2.5);disc(0,2,8,'#9fd8ff',2.5);box(-10,-12,8,3,'#5b5570',1);}
   else if(kind===4){rr(-30,-16,60,26,5);fs('#16122e',2.5);box(-26,2,52,7,'#fff1d0',2);for(let i=-22;i<26;i+=6)line(i,2,i,9,OUT,1.5);box(-28,10,6,12,'#16122e',2);box(22,10,6,12,'#16122e',2);}
   else if(kind===20){rr(-5,-10,10,20,4);fs('#3d3852',2.5);poly([-5,8,-9,14,9,14,5,8],'#5b5570',2);}
+  else if(kind===30){line(-18,0,18,0,OUT,3);rr(-12,-3.5,24,7,3);fs('#b9824a',2);}
   else flask(0,0,kind===10?'#c9e265':kind===11?'#9fd8ff':'#b06fd8',1.2);
   ctx.restore();
 }
@@ -1929,7 +1947,7 @@ function drawFx(dt){
     disc(x-20,GROUND-5,7,'#16122e',2.5);disc(x+20,GROUND-5,7,'#16122e',2.5);glow(x+38,GROUND-16,10,'#ffe27a',.6);
     for(let i=0;i<3;i++){const t=(G.time*3+i/3)%1;glow(x-40-t*30,GROUND-6-t*10,6+t*8,'#fff1d0',.4*(1-t));}
   }
-  for(const t of G.throws){const k=t.t/t.dur,hgt=t.kind===20?230:t.kind===4?150:120;drawItem(t.x0+(t.x1-t.x0)*k,t.y0+(GROUND-16-t.y0)*k-Math.sin(k*Math.PI)*hgt,t.kind,k*7);}
+  for(const t of G.throws){const k=t.t/t.dur,hgt=t.kind===20?230:t.kind===4?150:t.kind===30?60:120;drawItem(t.x0+(t.x1-t.x0)*k,t.y0+(GROUND-16-t.y0)*k-Math.sin(k*Math.PI)*hgt,t.kind,t.kind===30?k*16:k*7);}
   for(const d of G.drops){ctx.beginPath();ctx.ellipse(d.x,d.y,d.g?4:5,d.g?6:9,0,0,7);fs(d.g?'#5fa777':'#3d3852',2);}
   for(const dr of G.drones){
     box(dr.x-10,dr.y-4,20,8,dr.k==='gun'?'#5b5570':'#5f6f3a',2.5);line(dr.x-16,dr.y-6,dr.x+16,dr.y-6,OUT,2.5);
@@ -2030,7 +2048,8 @@ function helperL(f,who){
   if(who==='maria'){
     disc(x,y-11,5,'#c9c4dc',2);disc(x,y-2,9.5,'#ffcf9e',2.5);ctx.beginPath();ctx.arc(x,y-4,9.5,Math.PI*1.05,Math.PI*1.95);ctx.closePath();fs('#c9c4dc',2);
     ctx.strokeStyle=OUT;ctx.lineWidth=1.3;ctx.beginPath();ctx.arc(x+4,y-2,3,0,7);ctx.stroke();
-    ctx.save();ctx.translate(x+10,y+8);ctx.rotate(G.mariaSwing>0?.9:-.5);rr(0,-3,24,6,3);fs('#b9824a',2);line(-5,0,0,0,OUT,3);line(24,0,29,0,OUT,3);ctx.restore();
+    if(G.mariaSwing>0&&G.state==='wave')line(x+8,y+6,x+22,y-6,'#ffcf9e',4);   /* empty hand, the pin is in the air */
+    else{ctx.save();ctx.translate(x+10,y+8);ctx.rotate(-.5);rr(0,-3,24,6,3);fs('#b9824a',2);line(-5,0,0,0,OUT,3);line(24,0,29,0,OUT,3);ctx.restore();}
   }else if(who==='niko'){
     disc(x,y,7.5,'#ffcf9e',2.5);ctx.beginPath();ctx.arc(x,y-2,7.5,Math.PI,0);ctx.lineTo(x-12,y-2);ctx.closePath();fs('#d9534f',2);
     ctx.fillStyle=OUT;ctx.beginPath();ctx.arc(x+3,y,1.4,0,7);ctx.fill();
@@ -2263,10 +2282,10 @@ const brief=document.createElement('div');brief.className='brief';brief.hidden=t
 function begin(fn){
   const items=[...new Set(G.news||[])].slice(-5);G.news=[];
   if(!PHONE||!items.length){fn();return;}
-  const ms=3000+2500*items.length;let tm=0;
-  brief.innerHTML='<h3>Before wave '+G.wave+'</h3><ul>'+items.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><button class="go" type="button">Go!</button><span class="tm"><i style="animation-duration:'+ms+'ms"></i></span>';
-  const done=()=>{if(!G.briefing)return;G.briefing=false;clearTimeout(tm);brief.hidden=true;fn();showPanel();};
-  brief.hidden=false;G.briefing=true;showPanel();tm=setTimeout(done,ms);brief.onclick=done;
+  
+  brief.innerHTML='<h3>Before wave '+G.wave+'</h3><ul>'+items.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><button class="go" type="button">Go!</button>';
+  const done=()=>{if(!G.briefing)return;G.briefing=false;brief.hidden=true;fn();showPanel();};
+  brief.hidden=false;G.briefing=true;showPanel();brief.querySelector('.go').onclick=done;
 }
 function layout(){
   const vw=window.innerWidth,vh=window.innerHeight,ph=vw<=940||vh<=520,land=vw>vh;
