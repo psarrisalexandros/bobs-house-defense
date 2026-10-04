@@ -127,9 +127,6 @@ canvas{display:block;width:100%;height:100%;cursor:pointer}
 .node.can:hover{background:var(--ink)}
 .node.locked{background:transparent;border:2px dashed var(--desk-2);opacity:.85}
 .node.maxed{border-color:var(--plank);background:linear-gradient(90deg,#4a3f2a,var(--desk-2))} .node.maxed .p,.node.maxed .n i{color:var(--plank)}
-.node.flash{animation:unlock .7s ease-in-out 7}
-@keyframes unlock{50%{background:var(--c);color:var(--ink);transform:scale(1.02)}}
-@media (prefers-reduced-motion:reduce){.node.flash{animation:none;outline:3px solid var(--c)}}
 .tab{position:relative}
 .tab.done{box-shadow:inset 0 -4px 0 var(--plank);color:var(--plank)}
 .tab.done[aria-selected="true"]{color:var(--ink)}
@@ -1304,7 +1301,6 @@ function nodeState(n){
   else if(nx.missing.length){p='Needs '+nx.missing.join(', ');cls+=' locked';}
   else if(!free){p=nx.cost+' coins · one '+TREE[n.tree]+' upgrade per turn';cls+=' wait';}
   else{p=M.god?'Free in God mode':nx.cost+' coins';if(can)cls+=' can';}
-  if(G.unl[n.id]&&Date.now()-G.unl[n.id]<6000)cls+=' flash';
   return {nx,can,p,cls};
 }
 function renderSides(){
@@ -1360,7 +1356,7 @@ function renderDesk(){
     h='<div class="row"><button class="go" id="startBtn" type="button" data-act="'+(cont?'continue':'new')+'">'+(cont?'Continue at wave '+G.wave:'Start')+'</button>'+
       '<h2>Bob is not leaving his house</h2>'+(cont?'<button class="go quiet" id="newBtn" type="button" data-act="asknew">Start over from wave 1</button>':'')+'</div>'+
       (cont?warnHTML(G.wave):'')+
-      '<p>Bob shoots on his own. Buy upgrades from the panels on both sides and watch them appear. An upgrade flashes when it becomes available. Between waves you may buy <strong>as many upgrades as you can pay for</strong>. Damage stays from wave to wave until someone repairs it. If the house falls, you retry the same wave.</p>'+logHTML();
+      '<p>Bob shoots on his own. Buy upgrades from the panels on both sides and watch them appear. Between waves you may buy <strong>as many upgrades as you can pay for</strong>. Damage stays from wave to wave until someone repairs it. If the house falls, you retry the same wave.</p>'+logHTML();
   }else if(G.state==='wave'){
     h='<h2>Wave '+G.wave+(G.wave%5===0?' · a boss is coming':'')+'</h2>';
   }else if(G.state==='ready'){
