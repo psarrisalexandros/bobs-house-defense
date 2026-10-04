@@ -20,7 +20,9 @@ jobs:
           npm run sync
       - name: Build for the simulator
         run: |
-          xcodebuild -version
+          set -o pipefail
+          echo "::notice::$(xcodebuild -version | tr '\n' ' ')"
           xcodebuild -project app/ios/App/App.xcodeproj -scheme App -configuration Debug \
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO build | tail -40
+            CODE_SIGNING_ALLOWED=NO build > build.log 2>&1 || { grep -E "error:|FAILED" build.log | head -20 | while read -r l; do echo "::error::$l"; done; tail -60 build.log; exit 1; }
+          echo "::notice::$(grep -E 'BUILD SUCCEEDED' build.log) / app Swift files compiled: $(grep -c 'SceneDelegate.swift' build.log)"
