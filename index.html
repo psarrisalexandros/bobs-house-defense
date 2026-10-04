@@ -357,7 +357,7 @@ const TYPES={
   b_trex:{nm:'The T-rex',hp:530,sp:26,dmg:80,cd:2,r:56,h:120,coin:160,skin:'#6f8f5f',shirt:'#4f6f45',boss:true,dino:'trex',noHold:true},
   b_twin:{nm:'The Twins',hp:240,sp:28,dmg:30,cd:1.2,r:26,h:80,coin:90,skin:'#c9e265',shirt:'#d9534f',boss:true},
   b_king:{nm:'The Zombie King',hp:470,sp:16,dmg:40,cd:1.6,r:34,h:96,coin:220,skin:'#b06fd8',shirt:'#5a2d6a',boss:true,aura:true,summon:['brute',6]},
-  b_rider:{nm:'The Rex Rider',hp:600,sp:28,dmg:90,cd:2,r:56,h:120,coin:260,skin:'#5f7f6f',shirt:'#3f5f55',boss:true,dino:'trex',noHold:true,ranged:[3.5,40],rider:true},
+  b_rider:{nm:'The Rex Rider',hp:320,sp:28,dmg:45,cd:2,r:56,h:120,coin:260,skin:'#5f7f6f',shirt:'#3f5f55',boss:true,dino:'trex',noHold:true,ranged:[3.5,27],rider:true},
   b_mother:{nm:'The Mothership of the Dead',hp:530,sp:40,dmg:0,cd:9,r:70,h:50,coin:300,skin:'#8fd14f',shirt:'#3d3852',boss:true,fly:true,rain:2.2},
   b_zero:{nm:'Patient Zero',hp:800,sp:15,dmg:60,cd:1.4,r:38,h:104,coin:500,skin:'#e06aa0',shirt:'#16122e',boss:true,shield:400,summon:['runner',2.6],scream:11,ranged:[5,45]}
 };
@@ -393,31 +393,33 @@ const INFO={
 /* which zombies a wave may contain: [type, first wave, weight at first wave, growth per wave, cap] */
 const MIX=[['walker',1,10,0,10],['runner',2,3,.3,6],['brute',5,1,.3,4],['jumper',5,2,.3,4],['flyer',6,1.5,.25,4],['shield',7,1.5,.3,7],['biker',8,1.5,.25,3.5],['ember',9,1.5,.3,4],['zcar',11,.8,.2,2.5],['jugg',13,.6,.25,5],['zheli',14,.5,.15,2],['raptor',21,2,.2,5],['trike',31,.8,.1,2.5],['ptero',46,1,.1,3]];
 /* Bob's weapon line, one barrel each. Every tier t follows one formula:
-   power 20 x 1.38^t damage per second, range 460 + 75t px, aim error 0.07 x 0.7^t rad, projectile speed 500 + 60t.
+   power 20 x GP[t] damage per second (each gun is a bigger jump than the last: +40% for the pistol, +82% for the nuclear rifle), range 460 + 75t px, aim error 0.07 x 0.7^t rad, projectile speed 500 + 60t.
    Each gun only chooses how to spend its power: [name, projectile, barrel length, shots per second, quirks]. */
+const GP=[1,1.4,2,3,4.6,7.4,12.5,22,40];
 const GUNS=[['Bow','arrow',26,1.1],['Pistol','bullet',20,1.6],['Revolver','heavy',30,.9,{pierce:1}],['Shotgun','pellet',38,.8,{n:4,spread:.06}],
   ['Machine pistol','small',30,3.4,{wild:2}],['Assault rifle','rifle',44,2.5],['Battle rifle','ak',46,2.2,{pierce:1}],['Laser gun','laser',36,2.4,{pierce:3,sp:1300}],['Nuclear rifle','beam',40,1,{beam:true}]]
-  .map((g,t)=>{const o=g[4]||{};return Object.assign({nm:g[0],k:g[1],len:g[2],rate:g[3],range:460+75*t,sp:500+60*t,jit:.07*Math.pow(.7,t)*(o.wild||1),dmg:20*Math.pow(1.38,t)/(g[3]*(o.n||1))},o);});
+  .map((g,t)=>{const o=g[4]||{};return Object.assign({nm:g[0],k:g[1],len:g[2],rate:g[3],range:460+75*t,sp:500+60*t,jit:.07*Math.pow(.7,t)*(o.wild||1),dmg:20*GP[t]/(g[3]*(o.n||1))},o);});
 /* Tom's own rifles, nothing like Bob's guns: one careful shot at the most dangerous zombie */
 const TOMG=[{nm:'hunting rifle',dmg:30,cd:1.7,p:0,len:30,sp:900},{nm:'scoped rifle',dmg:55,cd:1.6,p:1,len:38,sp:1000},{nm:'anti-materiel rifle',dmg:110,cd:1.9,p:3,len:46,sp:1200,breaker:true}];
 /* balance: zombie health and bite grow per wave, eased in over the first waves; group size and coin value grow linearly */
 /* balance: zombie health and bite follow a power curve of the wave number, eased in over the first waves */
 const BAL={
-  tab:[1,2.5,6,14,32,66,116,176,246,340,470],  /* how tough one zombie is, every ten waves: a few of Bob's shots for a walker if his gun is up to date */
+  tab:[1,2.5,8,24,80,220,470,880,1450,2250,3250],  /* how tough one zombie is, every ten waves: a handful of Bob's shots for a walker if his gun is up to date */
   mul:1,force:0,
   b:.11,q:1.4,ease:.5,easeStep:.05,            /* zombie bite */
-  fast:.008,bite2:.05,t2:20,cap2:35,           /* from wave 20 to 55 they also get a little faster and bite harder every wave */
+  fast:.013,bite2:.13,t2:20,cap2:55,          /* from wave 20 to 75 they also get a little faster and bite harder every wave */
   n0:5,n1:2,nKnee:14,n2:1.6,nMax:190,gap:.14,dur:18,   /* how many come, and how fast */
-  coin:.02,cost:13,late:.8,                    /* income per wave, what the price tiers cost, and how much dearer the late ones are */
+  coin:.02,cost:13,late:.8,price:.75,                    /* income per wave, what the price tiers cost, and how much dearer the late ones are */
   boss:.5,bossStep:.05,bossMul:1,early:.5,     /* the first three named bosses are half as tough and bite half as hard */
   armW:25,armMax:.35,armStep:.008,             /* armoured zombies: from which wave, and how common they get */
-  pct:.05,help:1,hexp:.35,arm:[1,1.5,2.2,3.2,4.6],   /* helpers and traps grow slower than the zombies; the Armoury line keeps them in the fight */
+  pct:.05,help:1,hexp:.5,arm:[1,1.5,2.3,3.7,6.2],   /* helpers and traps grow slower than the zombies; the Armoury line keeps them in the fight */
   beam:.6,swim:2.4,hip:3.5,aoe:4,fall:.55,ex:.4,kb:.2};
-const WALL=[['Flimsy fence',60,50],['Wooden fence',110,74],['Taller fence',170,104],['Reinforced fence',250,110],['Metal wall',360,120],['Brick wall',500,128],['Spiked brick wall',650,128],['Concrete wall',900,132],['Titanium wall',1300,136],['Force field',1900,140]];
+const WALL=[['Flimsy fence',60,50],['Wooden fence',110,74],['Taller fence',180,104],['Reinforced fence',290,110],['Metal wall',460,120],['Brick wall',740,128],['Spiked brick wall',1180,128],['Concrete wall',1900,132],['Titanium wall',3000,136],['Force field',4800,140]];
+const FOUND=[0,50,120,220,360,560],FLOOR=[0,60,150,280,460,710];
 const FORT=[{hp:0,arm:0},{hp:20,arm:.05},{hp:40,arm:0},{hp:0,arm:.1},{hp:120,arm:.1},{hp:200,arm:.1},{hp:300,arm:.05},{hp:500,arm:.05}];
 const PEOPLE=['ross','tom','sofia','tania','paul','john','irene','priest','maria','niko','max','eleni','yannis'];
 const ADD=['garage','tower','water','helipad','castle','gate','silo','dome'];
-/* the six categories. Between two waves you may buy one upgrade in each */
+/* the six categories. */
 const TREE={guns:'Weapons',fence:'Fence',obst:'Obstacles',fort:'Fort',size:'House',people:'People'};
 /* who needs a window. Anybody can take any free window: ground floor left, then two on every floor above */
 const WIN=['tom','sofia','tania','paul','john','maria','niko','max','eleni','yannis'];
@@ -434,29 +436,29 @@ const NODES=[
     {nm:'Laser gun',ds:'Beams across the whole road and through shields',tier:40,req:[['irene',1],['ross',2]],msg:'Irene has finished a laser gun for Bob. It reaches the whole road and burns through shields.'},
     {nm:'Nuclear rifle',ds:'One continuous lime-green beam that never stops',tier:62,req:[['irene',6]],msg:'Irene hands Bob the nuclear rifle. One continuous beam, and a faint green glow at night.'}]},
   {id:'ammo',tree:'guns',nm:'Ammunition',base:'Plain rounds',cost:40,grow:1.5,steps:[
-    {nm:'Hollow points',ds:'+50% damage on every shot Bob fires',tier:4,msg:'Bob switched to hollow points. Every shot hits half as hard again.'},
-    {nm:'Explosive rounds',ds:'Bob\'s shots burst and hurt the zombies around the target',tier:14,msg:'Bob loads explosive rounds. One zombie gets shot, its friends get the news.'},
-    {nm:'Incendiary rounds',ds:'Bob\'s shots set zombies on fire',tier:24,msg:'Incendiary rounds. Whatever Bob hits keeps burning.'},
-    {nm:'Armour-piercing rounds',ds:'Every shot goes through two more zombies',tier:36,msg:'Armour-piercing rounds. Zombies standing in a queue now share one bullet.'}]},
+    {nm:'Hollow points',ds:'+40% damage on every shot Bob fires',tier:4,msg:'Bob switched to hollow points. Every shot hits a good deal harder.'},
+    {nm:'Explosive rounds',ds:'Another +36% damage, and shots burst and hurt the zombies around the target',tier:14,msg:'Bob loads explosive rounds. One zombie gets shot, its friends get the news.'},
+    {nm:'Incendiary rounds',ds:'Another +37% damage, and shots set zombies on fire',tier:24,msg:'Incendiary rounds. Whatever Bob hits keeps burning.'},
+    {nm:'Armour-piercing rounds',ds:'Another +38% damage, and every shot goes through two more zombies',tier:36,msg:'Armour-piercing rounds. Zombies standing in a queue now share one bullet.'}]},
   {id:'trigger',tree:'guns',nm:'Trigger',base:'Stock trigger',cost:35,grow:1.5,steps:[
     {nm:'Quick trigger',ds:'Bob fires 25% faster',tier:6,msg:'Bob discovered coffee. He fires a quarter faster.'},
-    {nm:'Taped magazines',ds:'Another 25% faster',tier:20,msg:'Bob taped two magazines together, like in the films. Faster again.'},
-    {nm:'Hair trigger',ds:'Another 25% faster',tier:44,msg:'A hair trigger. Bob now blinks slower than he shoots.'}]},
+    {nm:'Taped magazines',ds:'Another 28% faster',tier:20,msg:'Bob taped two magazines together, like in the films. Faster again.'},
+    {nm:'Hair trigger',ds:'Another 31% faster',tier:44,msg:'A hair trigger. Bob now blinks slower than he shoots.'}]},
   {id:'sight',tree:'guns',nm:'Sights',base:'Iron sights',cost:40,grow:1.5,req:[['gun',1]],steps:[
     {nm:'Laser sight',ds:'A red aiming beam. 15% of shots are headshots: three times the damage',tier:5,msg:'Bob taped a laser pointer to his gun. One shot in seven is now a headshot. The cat is furious.'},
-    {nm:'Scope',ds:'30% more range and 30% headshots',tier:16,msg:'Bob mounted a scope. He reaches a third further and finds heads twice as often.'},
-    {nm:'Match barrel',ds:'45% headshots, and shots fly straight and fast',tier:38,msg:'A match-grade barrel. Nearly every second shot is a headshot.'}]},
+    {nm:'Scope',ds:'30% more range, 30% headshots, and they hit three and a half times as hard',tier:16,msg:'Bob mounted a scope. He reaches a third further and finds heads twice as often.'},
+    {nm:'Match barrel',ds:'Half of all shots are headshots at four times the damage, and they fly straight and fast',tier:38,msg:'A match-grade barrel. Every second shot is a headshot.'}]},
 
   {id:'wall',tree:'fence',nm:'Fence',base:'Flimsy fence',cost:20,grow:1.7,steps:[
     {nm:'Wooden fence',ds:'Proper pointed planks. 110 strength',msg:'Bob nailed up a wooden fence. It holds almost twice as long.'},
-    {nm:'Taller fence',ds:'Harder to climb over. 170 strength',tier:2,msg:'The fence is taller now. Zombies have to look up at it, and still try to climb it.'},
-    {nm:'Reinforced fence',ds:'Cross beams and iron bands. 250 strength',tier:5,msg:'Cross beams and iron bands hold the fence together.'},
-    {nm:'Metal wall',ds:'Welded steel sheets. 360 strength',tier:12,req:[['ross',1]],msg:'Ross has welded steel sheets over the old fence. It is a wall now.'},
-    {nm:'Brick wall',ds:'Thick brickwork. 500 strength',tier:17,msg:'Bob and Ross laid bricks all night. The yard has a real wall.'},
-    {nm:'Spiked brick wall',ds:'650 strength, and steel spikes on top',tier:24,msg:'Steel spikes crown the wall. Zombies hurt themselves on it.'},
-    {nm:'Concrete wall',ds:'Poured and reinforced. 900 strength',tier:36,msg:'A wall of reinforced concrete. Even the T-rex will need a moment.'},
-    {nm:'Titanium wall',ds:'Aircraft-grade plating. 1300 strength',tier:55,msg:'Somebody found some titanium. Do not ask where.'},
-    {nm:'Force field',ds:'A humming wall of light. 1900 strength',tier:75,req:[['ross',2]],msg:'The wall now hums and glows. Birds avoid it. So should you.'}]},
+    {nm:'Taller fence',ds:'Harder to climb over. 180 strength',tier:2,msg:'The fence is taller now. Zombies have to look up at it, and still try to climb it.'},
+    {nm:'Reinforced fence',ds:'Cross beams and iron bands. 290 strength',tier:5,msg:'Cross beams and iron bands hold the fence together.'},
+    {nm:'Metal wall',ds:'Welded steel sheets. 460 strength',tier:12,req:[['ross',1]],msg:'Ross has welded steel sheets over the old fence. It is a wall now.'},
+    {nm:'Brick wall',ds:'Thick brickwork. 740 strength',tier:17,msg:'Bob and Ross laid bricks all night. The yard has a real wall.'},
+    {nm:'Spiked brick wall',ds:'1180 strength, and steel spikes on top',tier:24,msg:'Steel spikes crown the wall. Zombies hurt themselves on it.'},
+    {nm:'Concrete wall',ds:'Poured and reinforced. 1900 strength',tier:36,msg:'A wall of reinforced concrete. Even the T-rex will need a moment.'},
+    {nm:'Titanium wall',ds:'Aircraft-grade plating. 3000 strength',tier:55,msg:'Somebody found some titanium. Do not ask where.'},
+    {nm:'Force field',ds:'A humming wall of light. 4800 strength',tier:75,req:[['ross',2]],msg:'The wall now hums and glows. Birds avoid it. So should you.'}]},
   {id:'wspikes',tree:'fence',nm:'Fence spikes',base:'No spikes',cost:40,grow:1.5,req:[['wall',1]],steps:[
     {nm:'Spikes',ds:'Zombies that hit the fence get hurt',tier:6,msg:'Bob hammered nails through the fence. Pointy side out, this time.'},
     {nm:'Rusty spikes',ds:'Three times the damage',tier:22,msg:'Rusty spikes, and many more of them. Zombies are not vaccinated.'}]},
@@ -483,13 +485,13 @@ const NODES=[
     {nm:'Citadel',ds:'-5% damage, +500 health',tier:68,msg:'Gold trim, steel core. Bob calls it a citadel and nobody argues.'}]},
   {id:'mg',tree:'fort',nm:'Machine-gun turret',base:'Not built',cost:110,grow:1.5,req:[['ross',2]],steps:[
     {nm:'Machine-gun turret',ds:'Picks off the weakest zombies. Needs electricity',tier:14,msg:'A machine gun on a pole. It spins, it hums, it does not sleep.'},
-    {nm:'Six more barrels',ds:'+60% damage',tier:30,msg:'Six more barrels. It sounds like an angry sewing machine.'}]},
+    {nm:'Six more barrels',ds:'Twice the damage',tier:30,msg:'Six more barrels. It sounds like an angry sewing machine.'}]},
   {id:'sg',tree:'fort',nm:'Shotgun turret',base:'Not built',cost:180,grow:1.5,req:[['ross',2]],steps:[
     {nm:'Shotgun turret',ds:'Pellet bursts at whatever is nearest. Needs electricity',tier:19,msg:'A shotgun on a stick. Subtle it is not.'},
-    {nm:'Magnum shells',ds:'+60% damage',tier:34,msg:'Bigger shells. It now clears the porch and most of the conversation.'}]},
+    {nm:'Magnum shells',ds:'Twice the damage',tier:34,msg:'Bigger shells. It now clears the porch and most of the conversation.'}]},
   {id:'rpg',tree:'fort',nm:'RPG turret',base:'Not built',cost:280,grow:1.5,req:[['ross',2]],steps:[
     {nm:'RPG turret',ds:'Rockets into the biggest group. Needs electricity',tier:27,msg:'A rocket launcher on a pole. What could go wrong.'},
-    {nm:'Bigger rockets',ds:'+60% damage',tier:46,msg:'Bigger rockets, with smiley faces painted on. It does not help the zombies.'}]},
+    {nm:'Bigger rockets',ds:'Twice the damage',tier:46,msg:'Bigger rockets, with smiley faces painted on. It does not help the zombies.'}]},
   {id:'castle',tree:'fort',nm:'Castle',base:'Not built',cost:150,steps:[
     {nm:'Castle',ds:'+400 health, a stone tower and two archers',tier:37,req:[['fort',2]],msg:'The house is a castle now. Stone walls, a tower and two archers.'}]},
   {id:'gate',tree:'fort',nm:'Portcullis',base:'Not built',cost:150,steps:[
@@ -501,16 +503,16 @@ const NODES=[
 
   {id:'found',tree:'size',nm:'Foundations',base:'Bare earth',cost:15,grow:1.6,steps:[
     {nm:'Stone footings',ds:'+50 house health. Carries a second floor',msg:'Bob poured concrete under the house. The house said thanks.'},
-    {nm:'Concrete slab',ds:'+50 health. Carries a third floor',tier:4,msg:'A proper slab. The cellar spiders moved out.'},
-    {nm:'Deep footings',ds:'+50 health. Carries a fourth floor',tier:10,msg:'Deeper foundations. Bob found an old boot down there. It stays, as reinforcement.'},
-    {nm:'Reinforced concrete',ds:'+50 health. Carries a fifth floor',tier:18,msg:'Earthquake-proof. Zombie-proof remains to be seen.'},
-    {nm:'Steel piles to bedrock',ds:'+50 health. Carries a sixth floor',tier:28,msg:'Steel piles down to bedrock. Future archaeologists will be confused.'}]},
+    {nm:'Concrete slab',ds:'+70 health. Carries a third floor',tier:4,msg:'A proper slab. The cellar spiders moved out.'},
+    {nm:'Deep footings',ds:'+100 health. Carries a fourth floor',tier:10,msg:'Deeper foundations. Bob found an old boot down there. It stays, as reinforcement.'},
+    {nm:'Reinforced concrete',ds:'+140 health. Carries a fifth floor',tier:18,msg:'Earthquake-proof. Zombie-proof remains to be seen.'},
+    {nm:'Steel piles to bedrock',ds:'+200 health. Carries a sixth floor',tier:28,msg:'Steel piles down to bedrock. Future archaeologists will be confused.'}]},
   {id:'floors',tree:'size',nm:'Floors',base:'One floor',cost:110,grow:1.6,steps:[
     {nm:'Second floor',ds:'+60 health and two more windows. Sways without Stone footings',tier:2,msg:'The second floor is up. Two windows for whoever wants to help.'},
-    {nm:'Third floor',ds:'+60 health and two more windows. Sways without a Concrete slab',tier:6,msg:'The third floor is up. Two more windows to fill.'},
-    {nm:'Fourth floor',ds:'+60 health and two more windows. Sways without Deep footings',tier:14,msg:'The fourth floor is up. The view of the graveyard is lovely.'},
-    {nm:'Fifth floor',ds:'+60 health and two more windows. Sways without Reinforced concrete',tier:23,msg:'The fifth floor is up. The stairs are becoming a problem.'},
-    {nm:'Sixth floor',ds:'+60 health and two more windows. Sways without Steel piles',tier:33,msg:'Six floors. The neighbors say Bob has lost it. The neighbors are zombies.'}]},
+    {nm:'Third floor',ds:'+90 health and two more windows. Sways without a Concrete slab',tier:6,msg:'The third floor is up. Two more windows to fill.'},
+    {nm:'Fourth floor',ds:'+130 health and two more windows. Sways without Deep footings',tier:14,msg:'The fourth floor is up. The view of the graveyard is lovely.'},
+    {nm:'Fifth floor',ds:'+180 health and two more windows. Sways without Reinforced concrete',tier:23,msg:'The fifth floor is up. The stairs are becoming a problem.'},
+    {nm:'Sixth floor',ds:'+250 health and two more windows. Sways without Steel piles',tier:33,msg:'Six floors. The neighbors say Bob has lost it. The neighbors are zombies.'}]},
   {id:'basement',tree:'size',nm:'Basement',base:'Not built',cost:90,steps:[
     {nm:'Basement',ds:'+40 health and room for a lab',tier:9,req:[['found',1]],msg:'Bob has dug out a basement. A good place for a lab.'}]},
   {id:'attic',tree:'size',nm:'Attic',base:'Not built',cost:160,steps:[
@@ -525,8 +527,8 @@ const NODES=[
     {nm:'Helipad',ds:'A helicopter takes off and strafes the road',tier:28,req:[['floors',2]],msg:'A helipad on the top floor. The helicopter takes off and strafes the road.'}]},
   {id:'luck',tree:'size',nm:'Savings',base:'Empty pockets',cost:40,grow:1.5,steps:[
     {nm:'Lucky horseshoe',ds:'+25% coins from every zombie',tier:2,msg:'Bob nailed a horseshoe over the door. The horse wants it back.'},
-    {nm:'Piggy bank',ds:'Another +25% coins',tier:12,msg:'A piggy bank on the porch. It oinks when a coin drops in. Nobody knows how.'},
-    {nm:'Golden horseshoe',ds:'Another +25% coins',tier:28,msg:'Bob polished the horseshoe to gold. It is definitely real gold. Probably.'}]},
+    {nm:'Piggy bank',ds:'Another +28% coins',tier:12,msg:'A piggy bank on the porch. It oinks when a coin drops in. Nobody knows how.'},
+    {nm:'Golden horseshoe',ds:'Another +31% coins',tier:28,msg:'Bob polished the horseshoe to gold. It is definitely real gold. Probably.'}]},
 
   {id:'ross',tree:'people',nm:'Ross',cost:30,grow:1.6,steps:[
     {nm:'the repairman',ds:'Repairs the house while the wave runs, and a fifth of all damage between waves',tier:2,msg:'Ross came to help with his toolbox and his hammer. He repairs the house during the fight and more of it after every wave.'},
@@ -535,9 +537,9 @@ const NODES=[
     {nm:'Power tools',ds:'Helmet lamp and a power drill. Repairs twice as fast',tier:35,msg:'Ross got power tools. He repairs twice as fast and twice as loudly.'}]},
   {id:'armory',tree:'people',nm:'Armoury',base:'Whatever was in the shed',cost:120,grow:1.5,steps:[
     {nm:'Proper ammunition',ds:'Everyone who helps, and every trap and turret, hits 50% harder. An ammo crate on every window sill',tier:16,msg:'Bob opened an armoury. The helpers swapped their home-made ammunition for the real thing.'},
-    {nm:'Scopes for everyone',ds:'Helpers, traps and turrets hit half as hard again. Red aiming dots from every window',tier:34,msg:'Scopes for everyone. Grandma says hers makes the zombies look fat.'},
-    {nm:'Armour plates',ds:'Half as hard again, and steel plates under every window',tier:54,msg:'Steel plates under every window. The helpers lean out further now, and aim better for it.'},
-    {nm:'Military supply drop',ds:'Half as hard again. A crate on a parachute, signed "do not open"',tier:76,msg:'A military supply drop landed on the roof. Nobody ordered it. Nobody is sending it back.'}]},
+    {nm:'Scopes for everyone',ds:'Helpers, traps and turrets hit another 53% harder. Red aiming dots from every window',tier:34,msg:'Scopes for everyone. Grandma says hers makes the zombies look fat.'},
+    {nm:'Armour plates',ds:'Another 60% harder, and steel plates under every window',tier:54,msg:'Steel plates under every window. The helpers lean out further now, and aim better for it.'},
+    {nm:'Military supply drop',ds:'Another 68% harder. A crate on a parachute, signed "do not open"',tier:76,msg:'A military supply drop landed on the roof. Nobody ordered it. Nobody is sending it back.'}]},
   {id:'tom',tree:'people',nm:'Tom',cost:30,grow:1.5,steps:[
     {nm:'the neighbor',ds:'Takes a window with his hunting rifle. He aims for the strongest',tier:2,msg:'Help has arrived! Bob\'s neighbor Tom is at the window with his hunting rifle.'},
     {nm:'Scoped rifle',ds:'Nearly twice the damage, through a zombie',tier:8,msg:'Tom got a scoped rifle. His shots hit harder and go through a zombie.'},
@@ -708,7 +710,7 @@ function molLv(){return tl('irene')?1+Math.floor(tl('irene')/3):0;}
 function AD(k){return tl(ADD[k-1])>0;}          /* the eight add-ons, by their old order */
 function addon(){return 0;}
 function fortSum(k){let s=0;for(let i=0;i<=tl('fort');i++)s+=FORT[i][k];return s;}
-function houseMax(){return 100+50*tl('found')+60*tl('floors')+40*tl('basement')+60*tl('attic')+fortSum('hp')+50*cl('hp')+15*PEOPLE.filter(p=>tl(p)).length+(AD(5)?400:0);}
+function houseMax(){return 100+FOUND[tl('found')]+FLOOR[tl('floors')]+40*tl('basement')+60*tl('attic')+fortSum('hp')+50*cl('hp')+15*PEOPLE.filter(p=>tl(p)).length+(AD(5)?400:0);}
 function fenceMax(){return WALL[tl('wall')][1]+80*cl('fence');}
 function floors(){return 1+tl('floors');}
 /* floors that the foundations cannot carry: the house sways and takes 15% more damage for each */
@@ -734,7 +736,7 @@ function winCount(){return 2*floors()-1;}
 function winUsed(){return WIN.filter(p=>tl(p)).length;}
 function wpos(id){const sl=(M.W&&M.W[id])||0,f=Math.ceil(sl/2),right=sl>0&&sl%2===0;return {x:right?148:70,y:GROUND-FH*f-30,f,right};}
 function pp(id,dx,dy){const w=wpos(id);return {x:w.x+dx,y:w.y+dy};}
-function slotFree(tree){return M.god||!G.bought[tree];}
+function slotFree(tree){return true;}
 G.house=M.house==null?houseMax():Math.min(M.house,houseMax());
 G.fence=M.fence==null?fenceMax():Math.min(M.fence,fenceMax());
 
@@ -787,25 +789,42 @@ function useSkill(id){
 /* helpers, traps and skills are worth a fixed number of hits at any wave: they grow with the zombies */
 function dmgMul(){return Math.pow(G.hm||1,BAL.hexp)*BAL.help*BAL.arm[tl('armory')];}
 /* Bob's own gun is what the player has to keep up to date */
-function bobMul(){return tl('ammo')>=1?1.5:1;}
+function bobMul(){return [1,1.4,1.9,2.6,3.6][tl('ammo')];}
+function critC(){return [0,.15,.3,.5][tl('sight')];}
+function critM(){return [1,3,3.5,4][tl('sight')];}
 function EXPL(){return tl('ammo')>=2?2:0;}
 function INC(){return tl('ammo')>=3?2:0;}
 function PIERCE(){return tl('ammo')>=4?2:0;}
-function fireRate(){return 1+.25*tl('trigger')+(tl('maria')>=2?.15:0);}
-function turMul(id){return (1+.6*(tl(id)-1))*dmgMul();}
+function fireRate(){return [1,1.25,1.6,2.1][tl('trigger')]+(tl('maria')>=2?.15:0);}
+function turMul(id){return tl(id)*dmgMul();}
 function addCoins(c){
-  G.coinFrac+=c*(1+BAL.coin*(G.wave-1))*(1+.25*tl('luck'));
+  G.coinFrac+=c*(1+BAL.coin*(G.wave-1))*[1,1.25,1.6,2.1][tl('luck')];
   const k=Math.floor(G.coinFrac);if(k>0){G.coinFrac-=k;G.runCoins+=k;M.bank+=k;}
   return k;
 }
+/* how far gone an ordinary zombie is: it loses an arm, then the other, then a leg */
+function dstage(z){return z.t.boss||z.t.veh||z.t.dino||z.fly?0:Math.min(3,Math.floor((1-z.hp/z.max)*4));}
+function drop(z,k,c){if(!G.sim)G.parts.push({x:z.x,y:z.y-z.h*(k==='limb'?.5:.9),vx:50+Math.random()*130,vy:-190-Math.random()*130,t:.95,c,s:4,k,l:z.r*.9});}
+/* a wrecked bike, car or helicopter leaves its riders on the road */
+function unseat(z){
+  const n=z.t.veh==='bike'?1:z.t.veh==='car'?z.cargoLeft:Math.max(0,3-z.dropN);
+  for(let i=0;i<n;i++){spawn('walker',z.x+i*16,z.x<FENCE_X);G.zombies[G.zombies.length-1].toss=.5+i*.12;}
+}
 function hit(z,d,crit){
   if(z.dead)return;
+  const s0=dstage(z);
   if(AD(2))d*=1.15;
   if(z.mark)d*=2;                             /* Yannis marked this one */                      /* watchtower searchlight */
   z.hp-=d;z.flash=.09;
   if(crit&&!G.sim)G.texts.push({x:z.x,y:z.y-z.h-8,s:'HEADSHOT!',c:'#ff8a3c',t:.7});
+  if(z.hp>0){
+    if(z.arm&&z.hp<z.max*.6){z.arm=false;drop(z,'helm','#8fa3b8');}                 /* the armour comes off */
+    if(z.type==='jugg'&&!z.bare&&z.hp<z.max*.5){z.bare=true;drop(z,'helm','#5b5570');}
+    if(dstage(z)>s0)drop(z,'limb',z.t.skin);
+  }
   if(z.hp<=0){
     z.dead=true;const k=addCoins(z.t.coin);
+    if(z.t.veh&&!z.parked)unseat(z);
     if(!G.sim){
       for(let i=0;i<8;i++)G.parts.push({x:z.x,y:z.y-z.h*.5,vx:(Math.random()-.5)*220,vy:-Math.random()*220,t:.6,c:z.t.skin,s:3+Math.random()*4});
       if(k>0)G.texts.push({x:z.x,y:z.y-z.h-20,s:'+'+k,c:'#f2c14e',t:.9});
@@ -889,6 +908,7 @@ function update(dt){
   }
   for(const z of G.zombies){
     if(z.dead)continue;
+    if(z.shieldMax>0&&z.shield<=0&&!z.shOff){z.shOff=true;drop(z,'shield','#8fa3b8');}
     if(z.flash>0)z.flash-=dt;if(z.atk>0)z.atk-=dt;if(z.slow>0)z.slow-=dt;if(z.kb>0)z.kb-=dt;
     if(z.toss>0){z.toss-=dt;z.v=0;continue;}           /* in the air, courtesy of the hippo */
     if(z.burn>0){z.burn-=dt;sear(z,z.burnDps*dt);if(z.burn<=0)z.burnDps=0;if(z.dead)continue;}
@@ -995,7 +1015,7 @@ function update(dt){
     track('bob',PB,reach.length?reach[0]:near);
     if(g.beam){   /* the nuclear rifle: one continuous beam through the first three zombies in line */
       if(reach.length){
-        const dps=g.dmg*bobMul()*fireRate()*(1+2*.15*tl('sight'))*BAL.beam;   /* the beam cannot miss a head: headshots are averaged in */
+        const dps=g.dmg*bobMul()*fireRate()*(1+critC()*(critM()-1))*BAL.beam;   /* the beam cannot miss a head: headshots are averaged in */
         for(let i=0;i<Math.min(3+PIERCE(),reach.length);i++){const z=reach[i],d=dps*(i?.5:1)*dt;sear(z,z.shield>0?d*2:d);if(z.shield>0)z.shield-=d;if(INC())ignite(z,4*INC()*dmgMul(),3);}
         G.nbeam={x:reach[0].x,y:reach[0].y-reach[0].h*.55};
       }else G.nbeam={x:-99,y:-99};                         /* the beam never switches off */
@@ -1003,10 +1023,10 @@ function update(dt){
       G.fireT-=dt;
       if(G.fireT<=0&&reach.length){
         G.fireT=1/(g.rate*fireRate());
-        const n=g.n||1,cc=.15*tl('sight'),err=g.jit*Math.pow(.8,aim);
+        const n=g.n||1,cc=critC(),err=g.jit*Math.pow(.8,aim);
         for(let i=0;i<n;i++){
-          const crit=Math.random()<cc;                         /* a headshot does three times the damage */
-          const b=shoot(PB,g.len,reach[0],g.dmg*bobMul()*(crit?3:1),(n>1?(i-(n-1)/2)*g.spread:0)+(Math.random()-.5)*2*err,g.k,(g.pierce||0)+PIERCE(),g.sp*(1+.08*aim));
+          const crit=Math.random()<cc;                         /* a headshot does three to four times the damage */
+          const b=shoot(PB,g.len,reach[0],g.dmg*bobMul()*(crit?critM():1),(n>1?(i-(n-1)/2)*g.spread:0)+(Math.random()-.5)*2*err,g.k,(g.pierce||0)+PIERCE(),g.sp*(1+.08*aim));
           b.crit=crit;b.range=range+60;b.x0=b.x;b.bob=true;
         }
         G.kick=.08;
@@ -1198,7 +1218,7 @@ function update(dt){
           }
           if(b.breaker)z.shield=0;
           /* no headshots on vehicles; armoured zombies shrug off half of every bullet */
-          const veh=!!z.t.veh,bd=(veh&&b.crit?b.d/3:b.d)*(z.arm?.5:1);
+          const veh=!!z.t.veh,bd=(veh&&b.crit?b.d/critM():b.d)*(z.arm?.5:1);
           hit(z,bd,b.crit&&!veh);b.seen.push(z);
           /* blowback: the harder the shot is for this zombie, the further it staggers */
           if(!z.dead&&z.inMoat<=0&&z.held<=0&&z.frozen<=0&&!z.parked){
@@ -1251,7 +1271,7 @@ function nextOf(n){
   let missing=req.filter(r=>tl(r[0])<r[1]).map(r=>{const q=NODES.find(x=>x.id===r[0]);return q.tree==='people'&&r[1]===1?q.nm:q.steps[r[1]-1].nm;});
   if(M.god)missing=[];
   if(l===0&&WIN.indexOf(n.id)>=0&&winUsed()>=winCount())missing.push('a free window: build another floor');
-  return {l,maxed:l>=n.max,cost:M.god?0:Math.round(Math.max(n.cost*Math.pow(n.grow||1.5,l),tier?(15+BAL.cost*Math.pow(tier,1.3))*(1+BAL.late*Math.max(0,Math.min(1,(tier-30)/20))):0)),missing,msg:st.msg,ds:st.ds,nm:st.nm};
+  return {l,maxed:l>=n.max,cost:M.god?0:Math.round(Math.max(n.cost*Math.pow(n.grow||1.5,l),tier?(15+BAL.cost*Math.pow(tier,1.3))*(1+BAL.late*Math.max(0,Math.min(1,(tier-30)/20))):0)*BAL.price),missing,msg:st.msg,ds:st.ds,nm:st.nm};
 }
 /* every purchase says what changed */
 function say(s){
@@ -1293,7 +1313,6 @@ function renderSides(){
   for(const s in SD){
     const cur=G.tab[s];
     let h='<div class="tabs" role="tablist">'+SD[s].map(t=>'<button type="button" role="tab" class="tab t-'+t[0]+tabCls(t[0],cur)+'" id="tab-'+t[0]+'" data-tab="'+t[0]+'" data-side="'+s+'" aria-selected="'+(t[0]===cur)+'">'+t[1]+'</button>').join('')+'</div>';
-    h+='<div class="turn">'+(M.god?'God mode: no limits':slotFree(cur)?'You can buy one '+TREE[cur]+' upgrade this turn':'Bought this turn. One more after the next wave')+'</div>';
     h+='<div class="nodes t-'+cur+'" role="tabpanel">'+NODES.filter(n=>n.tree===cur).map(n=>{
       const st=nodeState(n),l=st.nx.l;
       let title=n.nm,d=n.ds;
@@ -1341,7 +1360,7 @@ function renderDesk(){
     h='<div class="row"><button class="go" id="startBtn" type="button" data-act="'+(cont?'continue':'new')+'">'+(cont?'Continue at wave '+G.wave:'Start')+'</button>'+
       '<h2>Bob is not leaving his house</h2>'+(cont?'<button class="go quiet" id="newBtn" type="button" data-act="asknew">Start over from wave 1</button>':'')+'</div>'+
       (cont?warnHTML(G.wave):'')+
-      '<p>Bob shoots on his own. Buy upgrades from the panels on both sides and watch them appear. An upgrade flashes when it becomes available. Between waves you may buy <strong>one upgrade in each category</strong>. Damage stays from wave to wave until someone repairs it. If the house falls, you retry the same wave.</p>'+logHTML();
+      '<p>Bob shoots on his own. Buy upgrades from the panels on both sides and watch them appear. An upgrade flashes when it becomes available. Between waves you may buy <strong>as many upgrades as you can pay for</strong>. Damage stays from wave to wave until someone repairs it. If the house falls, you retry the same wave.</p>'+logHTML();
   }else if(G.state==='wave'){
     h='<h2>Wave '+G.wave+(G.wave%5===0?' · a boss is coming':'')+'</h2>';
   }else if(G.state==='ready'){
@@ -2042,20 +2061,21 @@ function drawZombie(z){
   else if(z.fly){drawFlyer(z);}
   else{
     const s=z.r/14,wob=Math.sin(z.anim*7)*2*s,sw=Math.sin(z.anim*7)*5*s,an=antics(z),lunge=z.atk>0&&!an.r?-6*s:0,flash=z.flash>0;
-    ctx.save();ctx.translate(z.x+lunge+an.x,z.y+an.y);if(an.r)ctx.rotate(an.r);
+    ctx.save();ctx.translate(z.x+lunge+an.x,z.y+an.y);if(an.r)ctx.rotate(an.r);const st=dstage(z);
     ctx.strokeStyle=OUT;ctx.lineCap='round';ctx.lineJoin='round';
     if(z.t.jump){
       ctx.lineWidth=3.5;for(const lx of [-5,5]){ctx.beginPath();ctx.moveTo(lx*s,-z.h*.25);for(let i=1;i<=4;i++)ctx.lineTo(lx*s+(i%2?4:-4),-z.h*.25+i*(z.h*.25-2)/4);ctx.stroke();}
     }else{
-      ctx.lineWidth=6*s;ctx.beginPath();ctx.moveTo(-5*s,-z.h*.25);ctx.lineTo(-5*s+sw,-2);ctx.moveTo(5*s,-z.h*.25);ctx.lineTo(5*s-sw,-2);ctx.stroke();
+      ctx.lineWidth=6*s;ctx.beginPath();ctx.moveTo(-5*s,-z.h*.25);ctx.lineTo(-5*s+sw,-2);if(st<3){ctx.moveTo(5*s,-z.h*.25);ctx.lineTo(5*s-sw,-2);}ctx.stroke();
     }
     rr(-z.r,-z.h*.72+wob,z.r*2,z.h*.5,7*s);fs(flash?'#fff':z.t.shirt);
     if(z.t.fireproof&&!flash){ctx.strokeStyle='#ff8a3c';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-z.r*.5,-z.h*.66+wob);ctx.lineTo(-z.r*.1,-z.h*.5+wob);ctx.lineTo(-z.r*.4,-z.h*.36+wob);ctx.moveTo(z.r*.4,-z.h*.68+wob);ctx.lineTo(z.r*.2,-z.h*.48+wob);ctx.stroke();}
     ctx.lineWidth=7*s;ctx.strokeStyle=OUT;
-    ctx.beginPath();ctx.moveTo(-z.r*.4,-z.h*.6+wob);ctx.lineTo(-z.r-12*s,-z.h*.58+wob+sw*.4);ctx.moveTo(-z.r*.4,-z.h*.48+wob);ctx.lineTo(-z.r-10*s,-z.h*.44+wob-sw*.4);ctx.stroke();
+    ctx.beginPath();if(st<1){ctx.moveTo(-z.r*.4,-z.h*.6+wob);ctx.lineTo(-z.r-12*s,-z.h*.58+wob+sw*.4);}if(st<2){ctx.moveTo(-z.r*.4,-z.h*.48+wob);ctx.lineTo(-z.r-10*s,-z.h*.44+wob-sw*.4);}ctx.stroke();
     ctx.lineWidth=3.5*s;ctx.strokeStyle=flash?'#fff':z.t.skin;ctx.stroke();
+    if(st>=1&&!flash){ctx.fillStyle='#a02d3a';ctx.beginPath();ctx.arc(-z.r*.75,-z.h*.6+wob,2.6*s,0,7);if(st>=2)ctx.arc(-z.r*.75,-z.h*.47+wob,2.6*s,0,7);ctx.fill();}
     zface(z,s,-z.h*.82+wob,flash);
-    if(z.type==='jugg'){ctx.beginPath();ctx.arc(-2*s,-z.h*.86+wob,z.r*.9,Math.PI,0);ctx.closePath();fs('#5b5570',2.5);}
+    if(z.type==='jugg'&&!z.bare){ctx.beginPath();ctx.arc(-2*s,-z.h*.86+wob,z.r*.9,Math.PI,0);ctx.closePath();fs('#5b5570',2.5);}
     if(z.t.boss&&!z.t.mini)bossHat(z,s,wob);
     if(z.arm){ctx.beginPath();ctx.arc(-2*s,-z.h*.86+wob,z.r*.9,Math.PI,0);ctx.closePath();fs('#8fa3b8',2.5);box(-z.r*.7,-z.h*.68+wob,z.r*1.4,z.h*.22,'#8fa3b8',2);}
     if(z.type==='boss')poly([-18*s,-z.h*.98+wob,-18*s,-z.h*1.12+wob,-10*s,-z.h*1.04+wob,-2*s,-z.h*1.14+wob,6*s,-z.h*1.04+wob,14*s,-z.h*1.12+wob,14*s,-z.h*.98+wob],'#f2c14e',2.5);
@@ -2500,7 +2520,13 @@ function draw(dt){
     if(b.boom>0){const R=(b.R||70+8*molLv())*(1.1-b.boom),y=b.y1||GROUND-10,sq=b.y1?1:.55;ctx.globalAlpha=Math.min(1,b.boom*2.4);ctx.fillStyle=b.lime?'#8dff2a':'#ff8a3c';ctx.beginPath();ctx.ellipse(b.x1,y,R,R*sq,0,0,7);ctx.fill();ctx.fillStyle=b.lime?'#eaffb0':'#ffe27a';ctx.beginPath();ctx.ellipse(b.x1,y,R*.55,R*.55*sq,0,0,7);ctx.fill();ctx.globalAlpha=1;}
     else{const t=b.t/b.dur,x=b.x0+(b.x1-b.x0)*t,y=b.y0+(GROUND-b.y0)*t-Math.sin(t*Math.PI)*150;disc(x,y,7,'#5fa777',2.5);ctx.fillStyle='#ff8a3c';ctx.beginPath();ctx.arc(x+3,y-9,4,0,7);ctx.fill();}
   }
-  for(const p of G.parts){p.t-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=600*dt;ctx.globalAlpha=Math.max(0,Math.min(1,p.t*1.6));ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,p.s,p.s);}
+  for(const p of G.parts){p.t-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=600*dt;ctx.globalAlpha=Math.max(0,Math.min(1,p.t*1.6));ctx.fillStyle=p.c;
+    if(p.k){ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.t*13);
+      if(p.k==='limb'){line(-p.l/2,0,p.l/2,0,OUT,6);line(-p.l/2,0,p.l/2,0,p.c,3);}
+      else if(p.k==='helm'){ctx.beginPath();ctx.arc(0,0,p.l*.8,Math.PI,0);ctx.closePath();fs(p.c,2);}
+      else{rr(-4.5,-p.l,9,p.l*2,3);fs(p.c,2);}
+      ctx.restore();}
+    else ctx.fillRect(p.x,p.y,p.s,p.s);}
   ctx.globalAlpha=1;G.parts=G.parts.filter(p=>p.t>0);
   ctx.textAlign='center';ctx.lineJoin='round';
   for(const t of G.texts){t.t-=dt;t.y-=38*dt;ctx.globalAlpha=Math.max(0,Math.min(1,t.t*2.5));ctx.font='900 17px "M PLUS Rounded 1c",sans-serif';ctx.lineWidth=4;ctx.strokeStyle=OUT;ctx.strokeText(t.s,t.x,t.y);ctx.fillStyle=t.c;ctx.fillText(t.s,t.x,t.y);}
