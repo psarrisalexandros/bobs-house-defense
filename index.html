@@ -1247,12 +1247,28 @@ function waveCleared(){
   G.picks=0;G.offer=null;
   if(!G.offer){G.picks=0;G.wave++;M.wave=G.wave;G.state='ready';G.autoWait=M.auto&&!G.sim?AUTO_WAIT:0;save();renderDesk();renderSides();return;}
 }
-/* every fifth wave: a little boasting. The share is a formula that climbs with the wave, not a measurement */
-function boast(w){
-  const p=Math.min(99,Math.round(50+49*(1-Math.exp(-w/25)))),L=["Wave "+w+" beaten. You are better than "+p+"% of our players.","Wave "+w+" is history. That puts you ahead of "+p+"% of our players.",
-    "Wave "+w+" cleared. Only "+(100-p)+"% of our players get this far.","Wave "+w+" down. Bob says you are better than "+p+"% of our players, and Bob never exaggerates."];
-  return L[(w/5-1)%L.length];
-}
+/* every fifth wave: a pat on the back. All of it invented, none of it a statistic */
+const BOAST=["A survey of Bob's garden gnomes rates you above average. The gnomes rate everything above average.",
+  "You are now better than nine players out of ten, and the tenth one is Bob's goldfish.",
+  "The Institute of Made-Up Statistics puts you in the top 110%.",
+  "Experts agree you are doing brilliantly. The experts are zombies and were hoping for the opposite.",
+  "You have outlasted every previous owner of this house. There were no previous owners.",
+  "The zombies have started a support group about you.",
+  "Bob's mother says you are the best player she has ever seen. She has seen one.",
+  "You rank first in the neighbourhood. The neighbourhood is you, Bob and a suspicious cat.",
+  "The zombies gave you a five-star review: \"Would get shot here again.\"",
+  "Halfway. Seven out of five zombies recommend attacking a different house.",
+  "A zombie asked for your autograph. Bob said no on your behalf.",
+  "The Lawn Defence League has named you Member of the Month. You are the only member.",
+  "Scientists studied your technique and concluded: \"Yes.\"",
+  "You are now a legend in zombie bedtime stories. The scary kind.",
+  "The zombies' estate agent has taken this house out of the brochure.",
+  "A fortune teller predicted you would lose by now. She has been asked for a refund.",
+  "Bob wants to put up a statue of you. It will mostly be a garden gnome with your name on it.",
+  "You hold the record for this house. The previous record holder was a scarecrow.",
+  "The zombies are filing a formal complaint. Nobody is left to read it.",
+  "Bob framed your picture. It hangs next to the horseshoe, slightly crooked, with pride."];
+function boast(w){return 'Wave '+w+' beaten. '+BOAST[(w/5-1)%BOAST.length];}
 function repairShare(){return tl('ross')?.2+.06*tl('ross'):.12;}
 /* after a defeat the survivors patch things up overnight: 60%, not good as new */
 function patchUp(){G.house=Math.max(G.house,Math.round(houseMax()*.6));G.fence=Math.max(G.fence,Math.round(fenceMax()*.6));}
