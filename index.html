@@ -540,7 +540,7 @@ const NODES=[
     {nm:'Power tools',ds:'Helmet lamp and a power drill. Repairs twice as fast',tier:35,msg:'Ross got power tools. He repairs twice as fast and twice as loudly.'}]},
   {id:'armory',tree:'people',nm:'Armoury',base:'Whatever was in the shed',cost:120,grow:1.5,steps:[
     {nm:'Proper ammunition',ds:'Everyone who helps, and every trap and turret, hits 50% harder. An ammo crate on every window sill',tier:16,msg:'Bob opened an armoury. The helpers swapped their home-made ammunition for the real thing.'},
-    {nm:'Scopes for everyone',ds:'Helpers, traps and turrets hit another 53% harder. Red aiming dots from every window',tier:34,msg:'Scopes for everyone. Grandma says hers makes the zombies look fat.'},
+    {nm:'Scopes for everyone',ds:'Helpers, traps and turrets hit another 53% harder. A scope on every window sill',tier:34,msg:'Scopes for everyone. Grandma says hers makes the zombies look fat.'},
     {nm:'Armour plates',ds:'Another 60% harder, and steel plates under every window',tier:54,msg:'Steel plates under every window. The helpers lean out further now, and aim better for it.'},
     {nm:'Military supply drop',ds:'Another 68% harder. A crate on a parachute, signed "do not open"',tier:76,msg:'A military supply drop landed on the roof. Nobody ordered it. Nobody is sending it back.'}]},
   {id:'tom',tree:'people',nm:'Tom',cost:30,grow:1.5,steps:[
@@ -1722,7 +1722,7 @@ function drawHouse(){
     const ar=tl('armory'),sx=w.right?132:56,sy=w.y+12;
     if(ar>=3){box(sx-2,sy+2,32,6,'#8fa3b8',2);ctx.fillStyle=OUT;for(let i=0;i<4;i++){ctx.beginPath();ctx.arc(sx+2+i*8,sy+5,1.2,0,7);ctx.fill();}}
     if(ar>=1){box(sx+19,sy-8,9,8,'#5f6f3a',1.6);ctx.fillStyle='#f2c14e';ctx.fillRect(sx+21,sy-5,5,2);}
-    if(ar>=2&&G.state==='wave'){ctx.strokeStyle='rgba(255,93,115,.55)';ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(w.x+16,w.y-2);ctx.lineTo(w.x+70,w.y+4);ctx.stroke();}
+    if(ar>=2){rr(sx+2,sy-7,13,5,2);fs('#16122e',1.5);disc(sx+16,sy-4.5,2.6,'#9fd8ff',1.3);}   /* a scope lying on the sill: no laser beams for the helpers */
   }
   if(tl('armory')>=4){   /* the supply drop: a crate on a parachute, bobbing over the roof */
     const cx=92,cy=peak-52+Math.sin(G.time*1.4)*4;
