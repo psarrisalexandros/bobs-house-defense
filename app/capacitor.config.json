@@ -7,5 +7,10 @@
     "contentInset": "never",
     "backgroundColor": "#16122e",
     "allowsLinkPreview": false
+  },
+  "plugins": {
+    "SystemBars": {
+      "hidden": true
+    }
   }
 }

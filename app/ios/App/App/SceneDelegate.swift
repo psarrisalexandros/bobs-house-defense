@@ -29,7 +29,6 @@ class BobViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(BobCloudPlugin())
     }
     override var prefersStatusBarHidden: Bool { true }
-    override var prefersHomeIndicatorAutoHidden: Bool { true }
     /// one deliberate swipe is needed to leave the game, so a stray thumb on the edge does not
     override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { .all }
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask { .landscape }
