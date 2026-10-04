@@ -266,6 +266,29 @@ html.phone #startBtn,html.phone #againBtn{position:fixed;z-index:6;right:max(10p
 .card.c-fort,.chip.c-fort{background:var(--steel)} .card.c-size,.chip.c-size{background:var(--brick)} .card.c-people,.chip.c-people{background:var(--folk)}
 .turn{font-size:12px;font-weight:700;color:var(--muted);padding:0 2px}
 .node.wait{opacity:.6}
+.modal{position:fixed;inset:0;z-index:50;background:rgba(22,18,46,.82);display:flex;align-items:center;justify-content:center;padding:12px}
+.modal[hidden]{display:none}
+.sheet{background:var(--desk);border:3px solid var(--desk-2);border-radius:16px;padding:14px;max-width:560px;width:100%;max-height:100%;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+.sheet h2{font-family:var(--display);font-weight:900;font-size:20px;margin:0;flex:1 1 auto;text-wrap:balance}
+.sheet p{margin:0;color:var(--muted)} .sheet p strong{color:var(--paper)}
+.sheet .adwhy{font-weight:700;color:var(--paper)}
+.shoplist{display:flex;flex-direction:column;gap:6px}
+.sitem{display:flex;gap:10px;align-items:center;background:var(--desk-2);border-radius:10px;padding:8px 10px}
+.sitem>div{flex:1;min-width:0;display:flex;flex-direction:column}
+.sitem b{font-family:var(--display);font-weight:800}
+.sitem span{font-size:12.5px;color:var(--muted)}
+.sitem .go{flex:none;min-width:84px;min-height:40px;font-size:15px;padding:6px 12px;box-shadow:3px 3px 0 var(--ink)}
+.sitem.owned{opacity:.7}
+.fine{font-size:12px;color:var(--muted)}
+.sheet textarea{width:100%;background:var(--ink);color:var(--paper);border:2px solid var(--desk-2);border-radius:8px;padding:6px;font:12px ui-monospace,Menlo,monospace;resize:none;-webkit-user-select:text;user-select:text}
+.nosave{background:var(--hurt);color:var(--ink);font-weight:700;border-radius:8px;padding:6px 10px;font-size:13px}
+.sandb{background:var(--plank);color:var(--ink);font-weight:700;border-radius:8px;padding:6px 10px;font-size:13px}
+.auto.lockd{border-style:dashed}
+html.phone .sheet .go{min-height:44px}
+html.phone #autoBtn{min-height:40px}
+@media (max-width:600px){.app.land .hud .lbl[data-s]{font-size:0}.app.land .hud .lbl[data-s]::before{content:attr(data-s);font-size:9px}}
+@media (max-width:700px){.app.land .hud{gap:4px 6px;padding:0 6px}.app.land .hud .stat.coin b{font-size:19px}.app.land .hud .cn{width:18px;height:18px}.app.land .hud .lbl{font-size:8px;letter-spacing:.04em}.app.land #autoBtn{width:56px;font-size:9px}.app.land .bar .num{font-size:10px}}
+.app.land .auto{min-height:40px}
 .row.diff{gap:6px 8px}
 .row.diff .tog[disabled]{opacity:.4;cursor:default}
 .row.diff .lockd{font-size:12px;color:var(--muted)}
@@ -293,12 +316,14 @@ html.phone .hud{gap:4px 8px}
     <header class="hud">
       <h1>Bob's <span>House Defense</span></h1>
       <div class="stat coin" aria-label="Coins"><span class="cn" aria-hidden="true"></span><b id="hudCoins">0</b></div>
-      <div class="stat"><span class="lbl">Wave</span><b id="hudWave">1</b></div>
-      <div class="stat"><span class="lbl">Zombies</span><b id="hudLeft">0</b></div>
+      <div class="stat"><span class="lbl" data-s="W">Wave</span><b id="hudWave">1</b></div>
+      <div class="stat"><span class="lbl" data-s="Z">Zombies</span><b id="hudLeft">0</b></div>
       <button class="tog speed" id="speedBtn" type="button" aria-label="Game speed">x1</button>
       <button class="tog" id="shopBtn" type="button" aria-pressed="false" hidden>Upgrades</button>
       <button class="tog" id="autoBtn" type="button" aria-pressed="false">Continuous waves</button>
-      <button class="tog" id="godBtn" type="button" aria-pressed="false">God mode</button>
+      <button class="tog" id="storeBtn" type="button">Shop</button>
+      <button class="tog" id="bkBtn" type="button">Backup</button>
+      <button class="tog" id="godBtn" type="button" aria-pressed="false">Sandbox</button>
       <button class="tog" id="resetBtn" type="button" hidden>Reset upgrades</button>
     </header>
     <div class="bars">
@@ -696,9 +721,34 @@ const ICON={
 };
 
 /* ---------- persistent state ---------- */
+/* Two save slots, the real game and the Sandbox. Each is written to localStorage with the previous good copy kept beside it,
+   and mirrored to IndexedDB. What was bought lives in its own record, so starting over never loses it. */
+let STORE_OK=true;
+function lsGet(k){try{return localStorage.getItem(k);}catch(e){STORE_OK=false;return null;}}
+function lsSet(k,v){try{localStorage.setItem(k,v);return true;}catch(e){STORE_OK=false;return false;}}
+function parseSave(txt){try{const o=JSON.parse(txt||'null');return o&&typeof o==='object'&&o.T&&typeof o.T==='object'&&typeof o.wave==='number'&&o.wave>=1?o:null;}catch(e){return null;}}
+const SLOT=lsGet(KEY+'-slot')==='sand'?'sand':'main',SKEY=KEY+(SLOT==='sand'?'-sand':'');
 let M={T:{},bank:0,best:0,wave:1,L:{},house:null,fence:null,log:[],god:false,auto:false,autoSkill:false};
-try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s)M=Object.assign(M,s);}catch(e){}
-function save(){if(G.sim)return;M.L=G.L;M.house=G.house;M.fence=G.fence;try{localStorage.setItem(KEY,JSON.stringify(M));}catch(e){}}
+{const s=parseSave(lsGet(SKEY))||parseSave(lsGet(SKEY+'-bak'));if(s)M=Object.assign(M,s);}   /* a damaged save falls back to the copy before it */
+M.god=SLOT==='sand';
+let OWN={};try{OWN=JSON.parse(lsGet(KEY+'-own')||'{}')||{};}catch(e){OWN={};}
+function has(k){return !!(OWN.all||OWN[k]||(k==='x2'&&OWN.x3));}
+function noAds(){return has('noads');}
+let IDB=null;
+function idbOpen(cb){try{const r=indexedDB.open('bobs-house-defense',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>{IDB=r.result;cb();};r.onerror=()=>{};}catch(e){}}
+function idbPut(k,v){try{if(IDB)IDB.transaction('kv','readwrite').objectStore('kv').put(v,k);}catch(e){}}
+function idbGet(k,cb){try{if(!IDB)return cb(null);const r=IDB.transaction('kv').objectStore('kv').get(k);r.onsuccess=()=>cb(r.result||null);r.onerror=()=>cb(null);}catch(e){cb(null);}}
+/* the store versions inject window.BobCloud = {put(key,text), get(key,callback)}: a copy tied to the player's Apple or Google account, which is what survives a reinstall */
+function cloudPut(k,v){try{if(window.BobCloud)window.BobCloud.put(k,v);}catch(e){}}
+function cloudGet(k,cb){try{if(window.BobCloud)window.BobCloud.get(k,cb);}catch(e){}}
+function saveOwn(){const t=JSON.stringify(OWN);lsSet(KEY+'-own',t);idbPut(KEY+'-own',t);cloudPut(KEY+'-own',t);}
+let FROZEN=false;                                 /* set just before a reload that must not overwrite what was written */
+function save(){
+  if(G.sim||FROZEN)return;M.L=G.L;M.house=G.house;M.fence=G.fence;M.ts=Date.now();
+  const txt=JSON.stringify(M),old=lsGet(SKEY);
+  if(old&&old!==txt&&parseSave(old))lsSet(SKEY+'-bak',old);
+  lsSet(SKEY,txt);idbPut(SKEY,txt);cloudPut(SKEY,txt);
+}
 
 /* ---------- campaign state ---------- */
 const G={state:'menu',speed:1,sim:false,time:0,zombies:[],bullets:[],parts:[],texts:[],bombs:[],throws:[],mines:[],dogs:[],zaps:[],clouds:[],coinsFx:[],L:M.L||{},shake:0,
@@ -1038,7 +1088,7 @@ function update(dt){
       }
     }
     /* the tiny auto button: fire each skill as soon as it is ready and there is something to hit */
-    if(M.autoSkill&&seen.length>=3){G.autoT-=dt;if(G.autoT<=0)for(const k in SK)if(SK[k].has()&&G.cd[k]<=0){useSkill(k);G.autoT=2.5;break;}}
+    if(M.autoSkill&&(G.sim||has('auto'))&&seen.length>=3){G.autoT-=dt;if(G.autoT<=0)for(const k in SK)if(SK[k].has()&&G.cd[k]<=0){useSkill(k);G.autoT=2.5;break;}}
     // the five neighbors at the back windows
     if(tl('maria')){
       G.mariaT-=dt;if(G.mariaSwing>0)G.mariaSwing-=dt;
@@ -1251,6 +1301,7 @@ function waveCleared(){
   Object.assign(G,{bullets:[],bombs:[],drops:[],fires:[],throws:[],clouds:[],zaps:[],lobs:[],rockets:[],strike:null,beam:null,car:null,heli:null,missile:null,nbeam:null,mud:0,holy:0,stun:0});
   if(G.wave>M.best)M.best=G.wave;
   if(G.wave%5===0&&!G.sim)note(boast(G.wave));
+  if(G.wave%5===0&&!G.sim&&!has('noads')&&Date.now()-(G.adAt||0)>180000){G.adAt=Date.now();showAd('A short break between waves',null);}
   if(G.wave===100&&!G.sim){M.score=M.bank;note('Wave 100 beaten on '+D().nm+'. Bob keeps his house! Final score: '+M.bank+' coins left in the piggy bank.');}
   G.picks=0;G.offer=null;
   if(!G.offer){G.picks=0;G.wave++;M.wave=G.wave;G.state='ready';G.autoWait=M.auto&&!G.sim?AUTO_WAIT:0;save();renderDesk();renderSides();return;}
@@ -1324,7 +1375,7 @@ function nodeState(n){
   if(nx.maxed){p='Complete';cls+=' maxed';}
   else if(nx.missing.length){p='Needs '+nx.missing.join(', ');cls+=' locked';}
   else if(!free){p=nx.cost+' coins · one '+TREE[n.tree]+' upgrade per turn';cls+=' wait';}
-  else{p=M.god?'Free in God mode':nx.cost+' coins';if(can)cls+=' can';}
+  else{p=M.god?'Free in Sandbox':nx.cost+' coins';if(can)cls+=' can';}
   return {nx,can,p,cls};
 }
 function renderSides(){
@@ -1375,13 +1426,13 @@ function diffHTML(locked){
 function startLabel(){return 'Start wave '+G.wave+(G.autoWait>0?' ('+Math.ceil(G.autoWait)+')':'');}
 function renderDesk(){
   if(G.sim)return;
-  let h='';
+  let h=STORE_OK?'':'<div class="nosave">This browser is not saving your progress. Open Backup to copy a code.</div>';
   if(G.askNew){
-    h='<h2>Are you sure you want to start from the beginning?</h2><p><strong>All your progress will be lost:</strong> upgrades, coins and the waves you have beaten.</p>'+
+    h+='<h2>Are you sure you want to start from the beginning?</h2><p><strong>All your progress will be lost:</strong> upgrades, coins and the waves you have beaten.</p>'+
       '<div class="row"><button class="go" id="noBtn" type="button" data-act="newno">No, keep my progress</button><button class="go quiet" id="yesBtn" type="button" data-act="newyes">Yes, start from wave 1</button></div>';
   }else if(G.state==='menu'){
     const cont=G.wave>1;
-    h='<div class="row"><button class="go" id="startBtn" type="button" data-act="'+(cont?'continue':'new')+'">'+(cont?'Continue at wave '+G.wave:'Start')+'</button>'+
+    h+=(SLOT==='sand'?'<div class="sandb">Sandbox: everything is free here. Your real game is saved separately.</div>':'')+'<div class="row"><button class="go" id="startBtn" type="button" data-act="'+(cont?'continue':'new')+'">'+(cont?'Continue at wave '+G.wave:'Start')+'</button>'+
       '<h2>Bob is not leaving his house</h2>'+(cont?'<button class="go quiet" id="newBtn" type="button" data-act="asknew">Start over from wave 1</button>':'')+'</div>'+diffHTML(cont)+
       (cont?warnHTML(G.wave):'')+
       '<p>Bob shoots on his own. Buy upgrades from the panels on both sides and watch them appear. Between waves you may buy <strong>as many upgrades as you can pay for</strong>. Damage stays from wave to wave until someone repairs it. If the house falls, you retry the same wave.</p>'+logHTML();
@@ -1389,13 +1440,15 @@ function renderDesk(){
     h='<h2>Wave '+G.wave+(G.wave%5===0?' · a boss is coming':'')+'</h2>';
   }else if(G.state==='ready'){
     h='<div class="row"><button class="go" id="startBtn" type="button" data-act="continue">'+startLabel()+'</button><h2>'+(G.wave===101&&M.score!=null?'You won on '+D().nm+'! Final score: '+M.score+' coins · wave 101 is next':'Wave '+G.wave+' is next'+(G.wave%5===0?' · a boss is coming':''))+'</h2>'+
-      (G.autoWait>0?'<button class="go quiet" id="holdBtn" type="button" data-act="hold">Wait, I am shopping</button>':'')+'</div>'+
+      (G.autoWait>0?'<button class="go quiet" id="holdBtn" type="button" data-act="hold">Wait, I am shopping</button>':'')+
+      (G.overtime!==G.wave&&(G.house<houseMax()*.5||G.fence<fenceMax()*.5)?'<button class="go alt" id="otBtn" type="button" data-act="overtime">Full repair'+(has('noads')?'':' · ad')+'</button>':'')+'</div>'+
       warnHTML(G.wave)+logHTML();
   }else if(G.state==='over'){
     h='<div class="row"><button class="go" id="againBtn" type="button" data-act="retry">Retry wave '+G.wave+'</button><h2>The house fell on wave '+G.wave+'</h2></div>'+
       '<p>You collected <strong>'+G.runCoins+' coins</strong> in this attempt. Spend them on upgrades, then try the same wave again. Overnight the house and fence are patched up to 60%.</p>'+
       '<div class="row"><button class="go alt" id="doubleBtn" type="button" data-act="double"'+(G.doubled||!G.runCoins?' disabled':'')+'>'+
-      (G.doubled?'Coins doubled':'Double coins (rewarded-ad slot)')+'</button>'+
+      (G.doubled?'Coins doubled':'Double coins'+(has('noads')?'':' · ad'))+'</button>'+
+      '<button class="go alt" id="chanceBtn" type="button" data-act="chance"'+(G.chance===G.wave?' disabled':'')+'>'+(G.chance===G.wave?'Second chance used':'Second chance'+(has('noads')?'':' · ad'))+'</button>'+
       '<button class="go quiet" id="newBtn" type="button" data-act="asknew">Start over from wave 1</button></div>'+logHTML();
   }
   desk.innerHTML=h;desk.dataset.st=G.askNew?'ask':G.state;
@@ -1416,21 +1469,104 @@ desk.addEventListener('click',e=>{
   else if(a==='continue'){G.autoWait=0;begin(()=>startWave(G.wave));}
   else if(a==='hold'){G.autoWait=0;renderDesk();}
   else if(a==='retry')begin(()=>{patchUp();startWave(G.wave);});
-  else if(a==='double'&&!G.doubled){G.doubled=true;M.bank+=G.runCoins;saveRepaired();renderDesk();}
+  else if(a==='double'&&!G.doubled)showAd('Reward: double the coins from this attempt',()=>{G.doubled=true;M.bank+=G.runCoins;saveRepaired();renderDesk();});
+  else if(a==='chance'&&G.chance!==G.wave&&G.state==='over')showAd('Reward: a second chance on this wave',()=>{   /* the fight goes on with half a house and three seconds of grace */
+    G.chance=G.wave;G.house=Math.round(houseMax()*.5);for(const z of G.zombies)z.frozen=Math.max(z.frozen||0,3);G.state='wave';renderDesk();renderSides();});
+  else if(a==='overtime'&&G.overtime!==G.wave)showAd('Reward: Ross works overtime and repairs everything',()=>{G.overtime=G.wave;G.house=houseMax();G.fence=fenceMax();save();renderDesk();});
 });
-$('speedBtn').addEventListener('click',()=>{G.speed=G.speed%3+1;$('speedBtn').textContent='x'+G.speed;});
+/* ---------- shop, ads and backup ----------
+   In this web build an ad is a three-second placeholder and a purchase is a free test unlock.
+   The store versions replace showAd and buy with the real ad and payment calls; nothing else has to change. */
+const modal=document.createElement('div');modal.className='modal';modal.hidden=true;document.body.append(modal);
+function openModal(html){modal.innerHTML='<div class="sheet" role="dialog" aria-modal="true">'+html+'</div>';modal.hidden=false;G.modal=true;}
+function closeModal(){modal.hidden=true;modal.innerHTML='';G.modal=false;}
+function showAd(why,cb){
+  if(has('noads')){cb&&cb();return;}
+  let n=3;
+  const paint=()=>{openModal('<h2>Advertisement</h2><p>A real ad plays here in the store version. This is a placeholder.</p><p class="adwhy">'+esc(why)+'</p><div class="row"><button class="go" id="adDone" type="button"'+(n>0?' disabled':'')+'>'+(n>0?'Wait '+n:'Continue')+'</button></div>');
+    if(n<=0)$('adDone').onclick=()=>{closeModal();cb&&cb();};};
+  paint();const iv=setInterval(()=>{n--;if(modal.hidden){clearInterval(iv);return;}paint();if(n<=0)clearInterval(iv);},1000);
+}
+const SHOP=[['x2','x2 speed, forever','Or watch one ad for 15 minutes of x2',1],['x3','x3 speed','Includes x2 forever',3],
+  ['auto','Auto-skills','Skills fire by themselves when they are ready. Or unlock it for good with one ad',1],
+  ['noads','No ads, all rewards free','No ads at all. Every ad reward becomes a free button, once per wave',5],
+  ['sandbox','Sandbox mode','Every upgrade is free, in a separate save. Your real game is not touched',5],
+  ['all','Everything','Both speeds, auto-skills, no ads, free rewards and Sandbox mode',10]];
+/* roughly what one wave pays at the moment, so a crate is worth the same at wave 8 and at wave 80 */
+function incomeOf(w){const n=Math.min(BAL.nMax,Math.round(BAL.n0+Math.min(w,BAL.nKnee)*BAL.n1+Math.max(0,w-BAL.nKnee)*BAL.n2));return Math.max(20,Math.round(n*2.2*D().coin*(1+BAL.coin*(w-1))*[1,1.25,1.6,2.1][tl('luck')]/5)*5);}
+function buy(price,nm,grant,back){
+  openModal('<h2>'+esc(nm)+' · '+price+' €</h2><p><strong>Test build:</strong> nothing is charged here. In the store version this opens the App Store or Google Play payment.</p><div class="row"><button class="go" id="buyYes" type="button">Unlock for testing</button><button class="go quiet" id="buyNo" type="button">Cancel</button></div>');
+  $('buyYes').onclick=()=>{grant();closeModal();if(back)back();};$('buyNo').onclick=()=>{closeModal();if(back)back();};
+}
+function own(id){OWN[id]=true;saveOwn();syncToggles();}
+function openShop(){
+  const c1=3*incomeOf(G.wave),c2=10*incomeOf(G.wave);
+  openModal('<div class="row"><h2>Shop</h2><button class="go quiet" id="shopX" type="button">Close</button></div><div class="shoplist">'+
+    SHOP.map(i=>'<div class="sitem'+(has(i[0])?' owned':'')+'"><div><b>'+i[1]+'</b><span>'+i[2]+'</span></div><button class="go'+(has(i[0])?' quiet':'')+'" type="button" data-buy="'+i[0]+'"'+(has(i[0])?' disabled':'')+'>'+(has(i[0])?'Owned':i[3]+' €')+'</button></div>').join('')+
+    '<div class="sitem"><div><b>Supply crate</b><span>'+c1+' coins: about three waves of income</span></div><button class="go" type="button" data-crate="1">1 €</button></div>'+
+    '<div class="sitem"><div><b>Big supply crate</b><span>'+c2+' coins: about ten waves of income</span></div><button class="go" type="button" data-crate="2">3 €</button></div></div>'+
+    '<p class="fine">Test build: purchases are free here and nothing is charged.</p>');
+  $('shopX').onclick=closeModal;
+  modal.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{const i=SHOP.find(x=>x[0]===b.dataset.buy);buy(i[3],i[1],()=>own(i[0]),openShop);});
+  modal.querySelectorAll('[data-crate]').forEach(b=>b.onclick=()=>{const big=b.dataset.crate==='2',amt=big?c2:c1;buy(big?3:1,big?'Big supply crate':'Supply crate',()=>{M.bank+=amt;save();renderSides();},openShop);});
+}
+function openBackup(){
+  save();let code='';try{code='BOB1.'+btoa(unescape(encodeURIComponent(JSON.stringify(M))));}catch(e){}
+  openModal('<div class="row"><h2>Save and backup</h2><button class="go quiet" id="bkX" type="button">Close</button></div>'+
+    '<p>'+(STORE_OK?'Your game is saved on this device after every wave and every purchase. A second copy is kept in case the first is damaged.'+(window.BobCloud?' A third copy is kept with your account, so it comes back after a reinstall.':' Deleting the app or clearing the browser removes it, so keep a backup code.'):'<strong>This browser is not saving your progress.</strong> Copy the code below to keep it.')+'</p>'+
+    '<p>To keep your game safe, or to move it to another device, copy this code and paste it there.</p>'+
+    '<textarea id="bkCode" readonly rows="3" aria-label="Your backup code">'+code+'</textarea><div class="row"><button class="go" id="bkCopy" type="button">Copy code</button><span id="bkOk" class="fine"></span></div>'+
+    '<textarea id="bkIn" rows="3" aria-label="Paste a backup code" placeholder="Paste a backup code here"></textarea><div class="row"><button class="go alt" id="bkLoad" type="button">Restore from code</button><span id="bkMsg" class="fine"></span></div>');
+  $('bkX').onclick=closeModal;
+  $('bkCopy').onclick=()=>{const t=$('bkCode');t.focus();t.select();let ok=false;try{ok=document.execCommand('copy');}catch(e){}
+    try{if(navigator.clipboard)navigator.clipboard.writeText(code).then(()=>{$('bkOk')&&($('bkOk').textContent='Copied.');},()=>{});}catch(e){}
+    $('bkOk').textContent=ok?'Copied.':'Select the code and copy it.';};
+  $('bkLoad').onclick=()=>{
+    let o=null;try{const t=$('bkIn').value.trim();if(t.indexOf('BOB1.')===0)o=parseSave(decodeURIComponent(escape(atob(t.slice(5)))));}catch(e){}
+    if(!o){$('bkMsg').textContent='That code is not valid.';return;}
+    o.ts=Date.now();const txt=JSON.stringify(o);
+    if(lsSet(SKEY,txt)){idbPut(SKEY,txt);cloudPut(SKEY,txt);FROZEN=true;location.reload();}
+    else{M=Object.assign({T:{},bank:0,best:0,wave:1,L:{},house:null,fence:null,log:[],god:false,auto:false,autoSkill:false},o);M.god=SLOT==='sand';Object.assign(G,{L:M.L||{},wave:M.wave||1,state:'menu',zombies:[],picks:0,offer:null,autoWait:0});G.house=M.house==null?houseMax():Math.min(M.house,houseMax());G.fence=M.fence==null?fenceMax():Math.min(M.fence,fenceMax());closeModal();syncToggles();renderSides();renderDesk();}
+  };
+}
+/* speed: x1 is free, x2 for 15 minutes after an ad or for good, x3 from the shop */
+function speedOK(n){return n===1||(n===2&&(has('x2')||(OWN.x2Until||0)>Date.now()))||(n===3&&has('x3'));}
+function setSpeed(n){G.speed=n;$('speedBtn').textContent='x'+n;}
+$('speedBtn').addEventListener('click',()=>{
+  const n=G.speed%3+1;
+  if(speedOK(n)){setSpeed(n);return;}
+  if(n===3){setSpeed(1);say('x3 speed is in the Shop.');return;}
+  openModal('<h2>x2 speed</h2><p>Watch one ad for 15 minutes of x2, or unlock it for good.</p><div class="row"><button class="go" id="x2Ad" type="button">Watch an ad · 15 minutes</button><button class="go alt" id="x2Buy" type="button">1 € · forever</button><button class="go quiet" id="x2No" type="button">Cancel</button></div>');
+  $('x2Ad').onclick=()=>{closeModal();showAd('Reward: 15 minutes of x2 speed',()=>{OWN.x2Until=Date.now()+15*60000;saveOwn();setSpeed(2);});};
+  $('x2Buy').onclick=()=>buy(1,'x2 speed, forever',()=>{own('x2');setSpeed(2);});
+  $('x2No').onclick=closeModal;
+});
+$('storeBtn').addEventListener('click',openShop);$('bkBtn').addEventListener('click',openBackup);
 function syncToggles(){
   $('autoBtn').setAttribute('aria-pressed',String(!!M.auto));
-  $('godBtn').setAttribute('aria-pressed',String(!!M.god));
+  $('godBtn').setAttribute('aria-pressed',String(SLOT==='sand'));
   $('resetBtn').hidden=!M.god;
-  $('askBtn').setAttribute('aria-pressed',String(!!M.autoSkill));
+  $('askBtn').setAttribute('aria-pressed',String(!!M.autoSkill&&has('auto')));$('askBtn').classList.toggle('lockd',!has('auto'));
 }
-$('askBtn').addEventListener('click',()=>{M.autoSkill=!M.autoSkill;syncToggles();save();});
+$('askBtn').addEventListener('click',()=>{
+  if(has('auto')){M.autoSkill=!M.autoSkill;syncToggles();save();return;}
+  openModal('<h2>Auto-skills</h2><p>Skills fire by themselves as soon as they are ready. Watch one ad to unlock it for good, or buy it.</p><div class="row"><button class="go" id="auAd" type="button">Watch an ad · forever</button><button class="go alt" id="auBuy" type="button">1 €</button><button class="go quiet" id="auNo" type="button">Cancel</button></div>');
+  const on=()=>{own('auto');M.autoSkill=true;syncToggles();save();};
+  $('auAd').onclick=()=>{closeModal();showAd('Reward: auto-skills, unlocked for good',on);};
+  $('auBuy').onclick=()=>buy(1,'Auto-skills',on);
+  $('auNo').onclick=closeModal;
+});
 $('autoBtn').addEventListener('click',()=>{
   M.auto=!M.auto;syncToggles();save();
   if(G.state==='ready'){G.autoWait=M.auto?AUTO_WAIT:0;renderDesk();}
 });
-$('godBtn').addEventListener('click',()=>{M.god=!M.god;G.was={};syncToggles();save();renderSides();});
+/* Sandbox: every upgrade free, in its own save. Switching saves this game, flips the slot and reloads */
+$('godBtn').addEventListener('click',()=>{
+  if(!has('sandbox')){openShop();return;}
+  if(isIdle()||G.state==='over')save();
+  if(lsSet(KEY+'-slot',SLOT==='sand'?'main':'sand')){FROZEN=true;location.reload();}
+  else{M.god=!M.god;G.was={};syncToggles();renderSides();}
+});
 $('resetBtn').addEventListener('click',()=>{M.T={};M.W={};M.log=[];G.johnN=0;G.house=Math.min(G.house,houseMax());G.fence=Math.min(G.fence,fenceMax());G.dogs=[];G.drones=[];save();renderSides();if(G.state!=='wave')renderDesk();});
 /* where everybody is, for the click easter egg */
 function cast(){
@@ -1450,7 +1586,8 @@ cv.addEventListener('click',e=>{
   const q=QUIPS[hitc.id];G.qi=G.qi||{};const qn=G.qi[hitc.id]=((G.qi[hitc.id]==null?Math.floor(Math.random()*q.length):G.qi[hitc.id]+1)%q.length);G.bubble={x:hitc.x,y:hitc.y-hitc.r-6,s:q[qn],t:2.8,id:hitc.id};
   if(hitc.dog)for(let i=0;i<3;i++)G.texts.push({x:hitc.x-12+i*12,y:hitc.y-20-i*6,s:'\u2665',c:'#ff5d73',t:.8+i*.2});
 });
-$('skills').addEventListener('click',e=>{const b=e.target.closest('[data-skill]');if(b&&!b.disabled)useSkill(b.dataset.skill);});
+$('skills').addEventListener('click',e=>{const b=e.target.closest('[data-skill]');if(!b||b.disabled)return;const k=b.dataset.skill;
+  if(G.cd[k]>0&&SK[k].has()&&G.rech!==G.wave&&G.state==='wave')showAd('Reward: this skill is ready at once',()=>{G.rech=G.wave;G.cd[k]=0;});else useSkill(k);});
 toast.addEventListener('click',()=>{toast.hidden=true;G.toastT=0;});
 
 const hud={};
@@ -1461,17 +1598,17 @@ function updateHud(){
   const idle=isIdle();
   const hm=houseMax(),hh=Math.min(hm,G.house),fm=fenceMax(),ff=Math.min(fm,G.fence);
   for(const k in SK){
-    const has=SK[k].has(),cd=Math.max(0,G.cd[k]),ready=has&&cd<=0,can=ready&&G.state==='wave',key=(has?'h':'')+(can?'c':'')+(ready?'r':'')+Math.ceil(cd);
+    const has=SK[k].has(),cd=Math.max(0,G.cd[k]),ready=has&&cd<=0,can=ready&&G.state==='wave',re=has&&!ready&&G.state==='wave'&&G.rech!==G.wave,key=(has?'h':'')+(can?'c':'')+(ready?'r':'')+(re?'a':'')+Math.ceil(cd);
     if(hud['sk'+k]!==key){
       hud['sk'+k]=key;const el=$('skill-'+k);
-      el.disabled=!can;el.classList.toggle('ready',ready);el.classList.toggle('locked',!has);
-      el.querySelector('.st').textContent=!has?'Locked · '+SK[k].lock:ready?(can?'Ready':'Ready next wave'):'Charging · '+Math.ceil(cd)+'s';
+      el.disabled=!(can||re);el.classList.toggle('ready',ready);el.classList.toggle('locked',!has);
+      el.querySelector('.st').textContent=!has?'Locked · '+SK[k].lock:ready?(can?'Ready':'Ready next wave'):'Charging · '+Math.ceil(cd)+'s'+(re?' · tap: ready now'+(noAds()?'':' (ad)'):'');
       el.querySelector('i').style.width=(!has||ready)?'0%':Math.round(100*(1-cd/skillCd(k)))+'%';
     }
   }
   setText('hudWave',G.wave);
   setText('hudLeft',G.state==='wave'?G.zombies.length+G.queue.length:0);
-  setText('hudCoins',M.bank);
+  setText('hudCoins',PHONE&&M.bank>=10000?(M.bank>=1e6?(M.bank/1e6).toFixed(1)+'M':(M.bank/1000).toFixed(1)+'k'):M.bank);   /* the phone's top bar has no room for six digits */
   setText('hudHouseN',Math.ceil(hh)+' / '+hm);setW('hudHouse',Math.round(100*hh/hm));
   setText('hudFenceN',Math.ceil(ff)+' / '+fm);setW('hudFence',Math.round(100*ff/fm));
   if(hud.bank!==M.bank){hud.bank=M.bank;refreshSides();}
@@ -2578,12 +2715,13 @@ function draw(dt){
 let last=0,acc=0;
 function frame(ts){
   const dt=Math.min(.05,(ts-last)/1000||0);last=ts;
-  acc+=dt*G.speed;let n=0;
-  while(acc>=STEP&&n++<12){update(STEP);acc-=STEP;}
+  let n=0;
+  if(!G.modal){acc+=dt*G.speed;while(acc>=STEP&&n++<12){update(STEP);acc-=STEP;}}
   if(n>=12)acc=0;
+  if(G.speed>1&&!speedOK(G.speed))setSpeed(1);          /* the 15 minutes of x2 ran out */
   if(G.state!=='wave')G.time+=dt;
   if(G.toastT>0){G.toastT-=dt;if(G.toastT<=0)toast.hidden=true;}
-  if(G.state==='ready'&&G.autoWait>0&&!G.briefing){
+  if(G.state==='ready'&&G.autoWait>0&&!G.briefing&&!G.modal){
     G.autoWait-=dt;
     if(G.autoWait<=0){G.autoWait=0;const nw=G.news||[];G.news=[];startWave(G.wave);if(nw.length)say(nw[nw.length-1]);else warnSay(G.wave);renderSides();}
     else{const b=$('startBtn'),lb=startLabel();if(b&&b.textContent!==lb)b.textContent=lb;}
@@ -2616,9 +2754,9 @@ function layout(){
   const vw=window.innerWidth,vh=window.innerHeight,ph=vw<=940||vh<=520,land=vw>vh;
   if(ph!==PHONE){
     PHONE=ph;document.documentElement.classList.toggle('phone',ph);
-    if(ph){document.querySelector('.hud').append($('autoBtn'));$('autoBtn').textContent='Non-stop waves';opts.append($('godBtn'),$('resetBtn'));panel.append(desk,$('sideL'),opts);mid.append(panel);}
+    if(ph){document.querySelector('.hud').append($('autoBtn'));$('autoBtn').textContent='Non-stop waves';opts.append($('storeBtn'),$('bkBtn'),$('godBtn'),$('resetBtn'));panel.append(desk,$('sideL'),opts);mid.append(panel);}
     else{
-      mid.append(desk);app.prepend($('sideL'));$('autoBtn').textContent='Continuous waves';document.querySelector('.hud').append($('autoBtn'),$('godBtn'),$('resetBtn'));panel.remove();
+      mid.append(desk);app.prepend($('sideL'));$('autoBtn').textContent='Continuous waves';document.querySelector('.hud').append($('autoBtn'),$('storeBtn'),$('bkBtn'),$('godBtn'),$('resetBtn'));panel.remove();
       app.classList.remove('land','port','strip');$('shopBtn').hidden=true;
       if(!SIDES.L.some(t=>t[0]===G.tab.L))G.tab.L='guns';
     }
@@ -2634,6 +2772,21 @@ function layout(){
 $('shopBtn').addEventListener('click',()=>{G.shop=!G.shop;showPanel();});
 window.addEventListener('resize',layout);window.addEventListener('orientationchange',()=>setTimeout(layout,200));
 layout();syncToggles();renderSides();renderDesk();updateHud();requestAnimationFrame(frame);
+/* ask the browser not to evict the save, write it again whenever the app is put away, and pick up the IndexedDB copy if it is the newer one */
+try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});}catch(e){}
+const saveIdle=()=>{if(isIdle())save();};
+document.addEventListener('visibilitychange',()=>{if(document.hidden)saveIdle();});window.addEventListener('pagehide',saveIdle);
+/* take over a copy from elsewhere if it is newer than what this device has, but never in the middle of a game */
+function adopt(txt){const o=parseSave(txt);
+  if(!o||(o.ts||0)<=(M.ts||0)||G.state!=='menu')return false;
+  M=Object.assign(M,o);M.god=SLOT==='sand';Object.assign(G,{L:M.L||{},wave:M.wave||1});G.house=M.house==null?houseMax():Math.min(M.house,houseMax());G.fence=M.fence==null?fenceMax():Math.min(M.fence,fenceMax());
+  lsSet(SKEY,JSON.stringify(M));syncToggles();renderSides();renderDesk();return true;}
+function adoptOwn(txt){try{const o=JSON.parse(txt||'null');let ch=false;if(o)for(const k in o)if(o[k]&&!OWN[k]){OWN[k]=o[k];ch=true;}if(ch){lsSet(KEY+'-own',JSON.stringify(OWN));syncToggles();}return ch;}catch(e){return false;}}
+idbOpen(()=>{
+  idbGet(SKEY,txt=>{if(!adopt(txt)&&M.ts)idbPut(SKEY,JSON.stringify(M));});
+  idbGet(KEY+'-own',txt=>{if(!adoptOwn(txt))idbPut(KEY+'-own',JSON.stringify(OWN));});
+});
+cloudGet(SKEY,adopt);cloudGet(KEY+'-own',adoptOwn);
 
 /* balance helper: plays from wave 1 with random card picks and no upgrades, until the first defeat */
 function botBuy(){for(let g=0;g<40;g++){const can=NODES.map(n=>[n,nextOf(n)]).filter(x=>!x[1].maxed&&!x[1].missing.length&&M.bank>=x[1].cost&&slotFree(x[0].tree)).sort((a,b)=>a[1].cost-b[1].cost)[0];if(!can)break;buyNode(can[0].id);}}
