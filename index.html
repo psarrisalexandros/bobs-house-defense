@@ -351,7 +351,7 @@ const TYPES={
   ptero:{hp:33,sp:95,dmg:6,cd:1,r:24,h:30,coin:6,skin:'#9a8fb0',shirt:'#6b5c8a',dino:'ptero',fly:true,carry:true},
   /* a named boss every ten waves, each with one trick */
   b_grave:{nm:'The Gravedigger',hp:330,sp:17,dmg:26,cd:1.6,r:30,h:88,coin:60,skin:'#9aa06a',shirt:'#3d3326',boss:true,summon:['walker',3.2]},
-  b_bride:{nm:'The Bride',hp:370,sp:20,dmg:24,cd:1.4,r:28,h:86,coin:80,skin:'#bfe0c8',shirt:'#f4f0ff',boss:true,scream:9},
+  b_bride:{nm:'The Bride',hp:370,sp:20,dmg:24,cd:1.4,r:28,h:86,coin:80,skin:'#bfe0c8',shirt:'#f4f0ff',boss:true,scream:12},
   b_butcher:{nm:'The Butcher',hp:400,sp:18,dmg:34,cd:1.5,r:32,h:90,coin:100,skin:'#8fd14f',shirt:'#c9c4dc',boss:true,ranged:[4,30],deflect:true},
   b_general:{nm:'The General',hp:330,sp:17,dmg:30,cd:1.5,r:30,h:88,coin:120,skin:'#7f9f6a',shirt:'#3f5a3a',boss:true,shield:270,summon:['shield',5]},
   b_trex:{nm:'The T-rex',hp:530,sp:26,dmg:80,cd:2,r:56,h:120,coin:160,skin:'#6f8f5f',shirt:'#4f6f45',boss:true,dino:'trex',noHold:true},
@@ -391,7 +391,7 @@ const INFO={
 };
 
 /* which zombies a wave may contain: [type, first wave, weight at first wave, growth per wave, cap] */
-const MIX=[['walker',1,10,0,10],['runner',2,3,.3,6],['brute',5,1,.3,4],['jumper',5,2,.3,4],['flyer',6,1.5,.25,4],['shield',7,1.5,.3,4],['biker',8,1.5,.25,3.5],['ember',9,1.5,.3,4],['zcar',11,.8,.2,2.5],['jugg',13,.6,.25,3],['zheli',14,.5,.15,2],['raptor',21,2,.2,5],['trike',31,.8,.1,2.5],['ptero',46,1,.1,3]];
+const MIX=[['walker',1,10,0,10],['runner',2,3,.3,6],['brute',5,1,.3,4],['jumper',5,2,.3,4],['flyer',6,1.5,.25,4],['shield',7,1.5,.3,7],['biker',8,1.5,.25,3.5],['ember',9,1.5,.3,4],['zcar',11,.8,.2,2.5],['jugg',13,.6,.25,5],['zheli',14,.5,.15,2],['raptor',21,2,.2,5],['trike',31,.8,.1,2.5],['ptero',46,1,.1,3]];
 /* Bob's weapon line, one barrel each. Every tier t follows one formula:
    power 20 x 1.38^t damage per second, range 460 + 75t px, aim error 0.07 x 0.7^t rad, projectile speed 500 + 60t.
    Each gun only chooses how to spend its power: [name, projectile, barrel length, shots per second, quirks]. */
@@ -403,14 +403,16 @@ const TOMG=[{nm:'hunting rifle',dmg:30,cd:1.7,p:0,len:30,sp:900},{nm:'scoped rif
 /* balance: zombie health and bite grow per wave, eased in over the first waves; group size and coin value grow linearly */
 /* balance: zombie health and bite follow a power curve of the wave number, eased in over the first waves */
 const BAL={
-  tab:[1,2.5,6,12,23,40,62,90,122,160,204],   /* how tough one zombie is, every ten waves: about two to four of Bob's shots for a walker if his gun is up to date */
+  tab:[1,2.5,6,14,32,66,116,176,246,340,470],  /* how tough one zombie is, every ten waves: a few of Bob's shots for a walker if his gun is up to date */
   mul:1,force:0,
   b:.11,q:1.4,ease:.5,easeStep:.05,            /* zombie bite */
+  fast:.008,bite2:.05,t2:20,cap2:35,           /* from wave 20 to 55 they also get a little faster and bite harder every wave */
   n0:5,n1:2,nKnee:14,n2:1.6,nMax:190,gap:.14,dur:18,   /* how many come, and how fast */
-  coin:.03,cost:13,                            /* income per wave, and what the price tiers cost */
-  boss:.5,bossStep:.05,bossMul:1,
-  pct:.08,help:1,hexp:.35,                     /* helpers and traps grow with the waves, but slower than the zombies: Bob's gun has to keep up */
-  swim:2.4,hip:3.5,aoe:4,fall:.55,ex:.4,kb:.2};
+  coin:.02,cost:13,late:.8,                    /* income per wave, what the price tiers cost, and how much dearer the late ones are */
+  boss:.5,bossStep:.05,bossMul:1,early:.5,     /* the first three named bosses are half as tough and bite half as hard */
+  armW:25,armMax:.35,armStep:.008,             /* armoured zombies: from which wave, and how common they get */
+  pct:.05,help:1,hexp:.35,arm:[1,1.5,2.2,3.2,4.6],   /* helpers and traps grow slower than the zombies; the Armoury line keeps them in the fight */
+  beam:.6,swim:2.4,hip:3.5,aoe:4,fall:.55,ex:.4,kb:.2};
 const WALL=[['Flimsy fence',60,50],['Wooden fence',110,74],['Taller fence',170,104],['Reinforced fence',250,110],['Metal wall',360,120],['Brick wall',500,128],['Spiked brick wall',650,128],['Concrete wall',900,132],['Titanium wall',1300,136],['Force field',1900,140]];
 const FORT=[{hp:0,arm:0},{hp:20,arm:.05},{hp:40,arm:0},{hp:0,arm:.1},{hp:120,arm:.1},{hp:200,arm:.1},{hp:300,arm:.05},{hp:500,arm:.05}];
 const PEOPLE=['ross','tom','sofia','tania','paul','john','irene','priest','maria','niko','max','eleni','yannis'];
@@ -531,6 +533,11 @@ const NODES=[
     {nm:'Electricity',ds:'He fixes the generator. Everything that needs power can now be built',tier:8,msg:'Ross fixed the electricity. The lights are back and anything that needs power can be built.'},
     {nm:'Fence repairs',ds:'Welding mask and scaffolding: house first, then the fence',tier:18,msg:'Ross now fixes whatever needs fixing: first the house, then the fence.'},
     {nm:'Power tools',ds:'Helmet lamp and a power drill. Repairs twice as fast',tier:35,msg:'Ross got power tools. He repairs twice as fast and twice as loudly.'}]},
+  {id:'armory',tree:'people',nm:'Armoury',base:'Whatever was in the shed',cost:120,grow:1.5,steps:[
+    {nm:'Proper ammunition',ds:'Everyone who helps, and every trap and turret, hits 50% harder. An ammo crate on every window sill',tier:16,msg:'Bob opened an armoury. The helpers swapped their home-made ammunition for the real thing.'},
+    {nm:'Scopes for everyone',ds:'Helpers, traps and turrets hit half as hard again. Red aiming dots from every window',tier:34,msg:'Scopes for everyone. Grandma says hers makes the zombies look fat.'},
+    {nm:'Armour plates',ds:'Half as hard again, and steel plates under every window',tier:54,msg:'Steel plates under every window. The helpers lean out further now, and aim better for it.'},
+    {nm:'Military supply drop',ds:'Half as hard again. A crate on a parachute, signed "do not open"',tier:76,msg:'A military supply drop landed on the roof. Nobody ordered it. Nobody is sending it back.'}]},
   {id:'tom',tree:'people',nm:'Tom',cost:30,grow:1.5,steps:[
     {nm:'the neighbor',ds:'Takes a window with his hunting rifle. He aims for the strongest',tier:2,msg:'Help has arrived! Bob\'s neighbor Tom is at the window with his hunting rifle.'},
     {nm:'Scoped rifle',ds:'Nearly twice the damage, through a zombie',tier:8,msg:'Tom got a scoped rifle. His shots hit harder and go through a zombie.'},
@@ -646,6 +653,7 @@ const ICON={
   garage:'<path d="M2 22V9l10-6 10 6v13z" fill="#c98f5a"/><path d="M6 22V12h12v10z" fill="#3d3852"/><path d="M6 15h12M6 18h12" style="stroke:#5b5570;stroke-width:1.5"/>',
   tower:'<path d="M7 4h10v8H7z" fill="#b9824a"/><path d="M5 4l7-3 7 3z" fill="#8b5a3c"/><path d="M9 12 7 22M15 12l2 10" style="stroke-width:2"/><path d="M17 8l6-3v8z" fill="#ffe27a" fill-opacity=".8"/>',
   helipad:'<circle cx="12" cy="12" r="10" fill="#5b5570"/><path d="M8 7v10M16 7v10M8 12h8" style="stroke:#f2c14e;stroke-width:2.4"/>',
+  armory:'<path d="M3 9h18v12H3z" fill="#5f6f3a"/><path d="M3 9l2-4h14l2 4z" fill="#8fa36a"/><path d="M10 13h4v4h-4z" fill="#f2c14e"/><path d="M3 15h18" style="stroke-width:1.5"/>',
   dogs:'<path d="M4 20v-7l3-3h8l2-4 2 1v4l3 2v2h-4l-2 2v3h-3v-4H9v4z" fill="#c98f4a"/><circle cx="18" cy="9" r="1" fill="#16122e"/>',
   t_dmg:'<circle cx="12" cy="12" r="9" fill="#fff1d0"/><circle cx="12" cy="12" r="5.5" fill="#d9534f"/><circle cx="12" cy="12" r="2" fill="#fff1d0"/>',
   t_rate:'<path d="M14 2 5 13h5l-2 9 10-12h-6z" fill="#f2c14e"/>',
@@ -690,7 +698,7 @@ function save(){if(G.sim)return;M.L=G.L;M.house=G.house;M.fence=G.fence;try{loca
 /* ---------- campaign state ---------- */
 const G={state:'menu',speed:1,sim:false,time:0,zombies:[],bullets:[],parts:[],texts:[],bombs:[],throws:[],mines:[],dogs:[],zaps:[],clouds:[],coinsFx:[],L:M.L||{},shake:0,
   wave:M.wave||1,runCoins:0,coinFrac:0,kick:0,banner:0,toastT:0,picks:0,offer:null,tab:{L:'guns',R:'size'},
-  ang:{bob:.15,tom:.1,mg:.1,sg:.1,rpg:.1,flak:-.8},dome:0,car:null,heli:null,missile:null,drones:[],lobs:[],rockets:[],bursts:[],bees:[],bought:{},extra:{},bridge:0,hippoT:0,hippoA:0,nuke:0,stun:0,bass:0,scream:null,nbeam:null,ufo:null,mariaSwing:0,autoWait:0,unl:{},was:{},
+  ang:{bob:.15,tom:.1,mg:.1,sg:.1,rpg:.1,flak:-.8},dome:0,car:null,heli:null,missile:null,drones:[],lobs:[],rockets:[],bursts:[],bees:[],bought:{},extra:{},half:{},bridge:0,hippoT:0,hippoA:0,nuke:0,stun:0,bass:0,scream:null,nbeam:null,ufo:null,mariaSwing:0,autoWait:0,unl:{},was:{},
   cd:{air:0,mud:0,holy:0,beam:0},mud:0,holy:0,strike:null,beam:null,drops:[],fires:[],fence:0};
 function tl(id){return M.T[id]||0;}
 function cl(id){return G.L[id]||0;}
@@ -737,7 +745,7 @@ function startWave(w,fresh){
     carT:5,heliT:9,siloT:12,autoT:2,bubble:null,johnK:Math.floor(Math.random()*4),
     mariaT:1,nikoT:1,fwT:6,djT:6,markT:2,ufoT:1,stun:0,bass:0,scream:null,nbeam:null,nuke:0,lobs:[],rockets:[],bees:[],ufo:tl('irene')>=8?{x:700}:null,car:null,heli:null,missile:null,kick:0,banner:1.8,
     mud:0,holy:0,strike:null,beam:null,drops:[],fires:[]});
-  G.hm=scaleOf(w).hp;G.bought={};G.extra={};G.hippoT=0;
+  G.hm=scaleOf(w).hp;G.bought={};G.extra={};G.half={};G.hippoT=0;
   G.dome=AD(8)?(200+20*w)*.2*G.hm:0;
   if(tl('irene')>=4)for(let i=0;i<3;i++)G.mines.push({x:896+i*22+Math.random()*6});
   for(let i=0;i<dogCount();i++)G.dogs.push({x:KENNEL,st:'home',cd:1+i*1.2,z:null,t:0,breed:i});
@@ -761,11 +769,11 @@ function scaleOf(w){
   return {hp:BAL.force||hp,dmg:Math.min(1,BAL.ease+BAL.easeStep*w)*Math.pow(1+BAL.b*(w-1),BAL.q)};
 }
 function spawn(type,at,yard){
-  const t=TYPES[type],w=G.wave,sc=scaleOf(w),hm=sc.hp*(t.mini?Math.min(1,BAL.boss+BAL.bossStep*w):t.boss?BAL.bossMul:1),dm=sc.dmg;
+  const t=TYPES[type],w=G.wave,sc=scaleOf(w),hm=sc.hp*(t.mini?Math.min(1,BAL.boss+BAL.bossStep*w):t.boss?BAL.bossMul*(w<=30?BAL.early:1):1),dm=sc.dmg;
   G.zombies.push({type,t,fly:!!t.fly,x:at||W+30+Math.random()*40,y:t.rain?112:t.drops?150+Math.random()*40:t.fly?250+Math.random()*70:GROUND,
-    stopX:t.rain?650:t.drops?650:t.fly?290+Math.random()*150:0,dropN:0,hp:t.hp*hm,max:t.hp*hm,dmg:t.dmg*dm,sp:t.sp*(.9+Math.random()*.2),shield:(t.shield||0)*hm,shieldMax:(t.shield||0)*hm,
+    stopX:t.rain?650:t.drops?650:t.fly?290+Math.random()*150:0,dropN:0,hp:t.hp*hm,max:t.hp*hm,dmg:t.dmg*dm*(t.boss&&!t.mini&&w<=30?BAL.early:1)*(1+BAL.bite2*Math.min(BAL.cap2,Math.max(0,w-BAL.t2))),sp:t.sp*(.9+Math.random()*.2)*(1+BAL.fast*Math.min(BAL.cap2,Math.max(0,w-BAL.t2))),shield:(t.shield||0)*hm,shieldMax:(t.shield||0)*hm,
     r:t.r,h:t.h,cd:t.cd*Math.random(),anim:Math.random()*6,flash:0,atk:0,dead:false,v:0,inMoat:0,moated:false,hop:0,burn:0,burnDps:0,frozen:0,held:0,slow:0,gated:false,dog:false,
-    arm:w>=61&&!t.boss&&!t.veh&&!t.dino&&t.hp<=25&&Math.random()<Math.min(.5,.15+.01*(w-61)),cargoLeft:t.cargo||0,sT:2,scT:5,rT:3,rope:0,carry:!!t.carry,yard:!!yard,mark:false,hitOnce:false,parked:false,unT:0,kb:0,toss:0,cl:0,moatT:1.5,clm:Math.random()<.6&&!t.boss&&!t.veh&&!t.dino&&!t.fly&&!t.shield});
+    arm:w>=BAL.armW&&!t.boss&&!t.veh&&!t.dino&&t.hp<=35&&Math.random()<Math.min(BAL.armMax,.1+BAL.armStep*(w-BAL.armW)),cargoLeft:t.cargo||0,sT:2,scT:5,rT:3,rope:0,carry:!!t.carry,yard:!!yard,mark:false,hitOnce:false,parked:false,unT:0,kb:0,toss:0,cl:0,moatT:1.5,clm:Math.random()<.6&&!t.boss&&!t.veh&&!t.dino&&!t.fly&&!t.shield});
 }
 function ignite(z,dps,t){if(z.t.fireproof)return;z.burn=Math.max(z.burn,t);z.burnDps=Math.max(z.burnDps,dps);}
 function useSkill(id){
@@ -777,7 +785,7 @@ function useSkill(id){
   else if(id==='holy'){const d=tl('priest')>=2?5.5:4;G.holy=d+.5;for(const z of G.zombies)z.frozen=z.t.boss?d/2:d;}
 }
 /* helpers, traps and skills are worth a fixed number of hits at any wave: they grow with the zombies */
-function dmgMul(){return Math.pow(G.hm||1,BAL.hexp)*BAL.help;}
+function dmgMul(){return Math.pow(G.hm||1,BAL.hexp)*BAL.help*BAL.arm[tl('armory')];}
 /* Bob's own gun is what the player has to keep up to date */
 function bobMul(){return tl('ammo')>=1?1.5:1;}
 function EXPL(){return tl('ammo')>=2?2:0;}
@@ -815,10 +823,10 @@ function shoot(p,len,z,d,spread,kind,pierce,sp){
   G.bullets.push(b);return b;
 }
 function track(k,p,z){const t=Math.atan2(z.y-z.h*.55-p.y,z.x-p.x);G.ang[k]+=(t-G.ang[k])*.3;}
-function explode(x,y,R,d,list,pct,lime){
+function explode(x,y,R,d,list,pct,lime,cap){
   G.bombs.push({x1:x,y1:y,boom:lime?.6:.3,done:true,R,t:0,dur:0,lime});
   /* a blast only has so much force: it reaches the nearest few, however tight the crowd */
-  let left=lime?99:BAL.aoe;
+  let left=lime?999:(cap||BAL.aoe);
   for(const z of list.filter(z=>Math.hypot(z.x-x,z.y-z.h*.5-y)<R+z.r).sort((a,b)=>Math.abs(a.x-x)-Math.abs(b.x-x))){if(left--<=0)break;hit(z,d+(pct?z.max*BAL.pct*(z.t.boss?pct*.3:pct):0));}
 }
 /* what John throws next: the thing in his hands, or every fourth time the piano */
@@ -839,7 +847,7 @@ function land(t,alive){
   if(k<=4&&ground.some(z=>z.t.deflect&&Math.abs(z.x-x)<130)){G.fence=Math.max(0,G.fence-20);if(!G.sim)G.texts.push({x,y:GROUND-60,s:'THROWN BACK!',c:'#ff5d73',t:.9});return;}
   if(k<=4){
     const big=k===4,m=dmgMul()*(tl('john')>=2?1.4:1);
-    G.shake=big?.3:.12;explode(x,GROUND-14,big?110:tl('john')>=2?70:58,(big?90:34)*m,ground,big?.3:.12);
+    G.shake=big?.3:.12;explode(x,GROUND-14,big?110:tl('john')>=2?70:58,(big?90:34)*m,ground,big?.3:.12,false,big?8:6);
     if(!G.sim)for(let i=0;i<(big?16:8);i++)G.parts.push({x,y:GROUND-12,vx:(Math.random()-.5)*300,vy:-Math.random()*260,t:.7,c:i%2?'#fff1d0':'#8b5a3c',s:4+Math.random()*5});
   }else if(k===10){
     {let left=BAL.aoe;for(const z of ground)if(Math.abs(z.x-x)<50+z.r){if(left--<=0)break;z.shield=0;hit(z,22*dmgMul());}}
@@ -866,7 +874,7 @@ function update(dt){
   if(G.queue.length&&G.spawnT<=0){spawn(G.queue.shift());G.spawnT=G.spawnGap*(.6+Math.random()*.8);}
   const wire=tl('wire'),flame=tl('flame'),spikes=spikeLv(),moat=tl('moat'),mw=moatW(),hold=moat>=2?BAL.swim:1.5;
   if(G.hippoT>0)G.hippoT-=dt;if(G.hippoA>0)G.hippoA-=dt;
-  const armor=armorNow(),aura=G.zombies.some(q=>!q.dead&&q.t.aura)?1.35:1,holyWater=tl('priest')>=3,shock=tl('tania')>=3;
+  const armor=armorNow(),aura=G.zombies.some(q=>!q.dead&&q.t.aura)?1.2:1,holyWater=tl('priest')>=3,shock=tl('tania')>=3;
   for(const k in G.cd)if(G.cd[k]>0)G.cd[k]-=dt;
   if(G.mud>0)G.mud-=dt;if(G.holy>0)G.holy-=dt;
   for(const f of G.fires)f.t-=dt;G.fires=G.fires.filter(f=>f.t>0);
@@ -987,7 +995,7 @@ function update(dt){
     track('bob',PB,reach.length?reach[0]:near);
     if(g.beam){   /* the nuclear rifle: one continuous beam through the first three zombies in line */
       if(reach.length){
-        const dps=g.dmg*bobMul()*fireRate()*(1+2*.15*tl('sight'));   /* the beam cannot miss a head: headshots are averaged in */
+        const dps=g.dmg*bobMul()*fireRate()*(1+2*.15*tl('sight'))*BAL.beam;   /* the beam cannot miss a head: headshots are averaged in */
         for(let i=0;i<Math.min(3+PIERCE(),reach.length);i++){const z=reach[i],d=dps*(i?.5:1)*dt;sear(z,z.shield>0?d*2:d);if(z.shield>0)z.shield-=d;if(INC())ignite(z,4*INC()*dmgMul(),3);}
         G.nbeam={x:reach[0].x,y:reach[0].y-reach[0].h*.55};
       }else G.nbeam={x:-99,y:-99};                         /* the beam never switches off */
@@ -1110,7 +1118,7 @@ function update(dt){
   if(G.missile){
     const m=G.missile;
     if(m.up){m.y-=640*dt;if(m.y<-60){m.up=false;m.x=m.tx;}}
-    else{m.y+=760*dt;if(m.y>=GROUND-10){const nk=tl('irene')>=7;G.shake=nk?.8:.4;explode(m.x,GROUND-12,nk?260:120,(nk?360:120)*dmgMul(),alive,nk?.9:.6,nk);if(nk)G.nuke=1.6;G.nukeX=m.x;G.missile=null;}}
+    else{m.y+=760*dt;if(m.y>=GROUND-10){const nk=tl('irene')>=7;G.shake=nk?.8:.4;explode(m.x,GROUND-12,nk?260:120,(nk?360:120)*dmgMul(),alive,nk?.9:.6,nk,12);if(nk)G.nuke=1.6;G.nukeX=m.x;G.missile=null;}}
   }
   /* Tom's dogs: run out, hold one zombie in place, come home */
   for(const d of G.dogs){
@@ -1162,7 +1170,7 @@ function update(dt){
     if(d.y>=GROUND-6){
       d.gone=true;
       if(d.g)explode(d.x,GROUND-8,52,30*dmgMul(),alive.filter(z=>!z.fly),.08);
-      else{G.shake=.2;G.bombs.push({x1:d.x,boom:.35,done:true,R:80,t:0,dur:0});for(const z of alive)if(Math.abs(z.x-d.x)<80+z.r)hit(z,30*dmgMul()+z.max*BAL.pct*(z.t.boss?.12:.45));}
+      else{G.shake=.2;G.bombs.push({x1:d.x,boom:.35,done:true,R:80,t:0,dur:0});{let left=8;for(const z of alive.filter(z=>Math.abs(z.x-d.x)<80+z.r).sort((p,q)=>Math.abs(p.x-d.x)-Math.abs(q.x-d.x))){if(left--<=0)break;hit(z,30*dmgMul()+z.max*BAL.pct*(z.t.boss?.12:.45));}}}
     }
   }
   G.drops=G.drops.filter(d=>!d.gone);
@@ -1177,11 +1185,11 @@ function update(dt){
     const steps=Math.max(1,Math.ceil(b.sp*dt/18)),sdt=dt/steps;
     for(let s=0;s<steps&&!b.gone;s++){
       b.x+=b.vx*sdt;b.y+=b.vy*sdt;
-      if(b.y>GROUND+30||b.y<-20||b.x>W+20||b.x<0||(b.range&&b.x-b.x0>b.range)){if(b.k==='rocket'&&b.y>GROUND)explode(b.x,GROUND-6,62,b.d,alive);b.gone=true;break;}
+      if(b.y>GROUND+30||b.y<-20||b.x>W+20||b.x<0||(b.range&&b.x-b.x0>b.range)){if(b.k==='rocket'&&b.y>GROUND)explode(b.x,GROUND-6,62,b.d,alive,0,false,6);b.gone=true;break;}
       for(const z of alive){
         if(z.dead||b.seen.indexOf(z)>=0)continue;
         if(Math.abs(b.x-z.x)<z.r+5&&b.y>z.y-z.h-4&&b.y<z.y+6){
-          if(b.k==='rocket'||b.k==='flak'){explode(b.x,b.y,b.k==='flak'?40:62,b.d,alive);b.gone=true;break;}
+          if(b.k==='rocket'||b.k==='flak'){explode(b.x,b.y,b.k==='flak'?40:62,b.d,alive,0,false,b.k==='flak'?4:6);b.gone=true;break;}
           /* shields stop ordinary bullets. Tom's big rifle and the laser gun go through; fire, acid, blasts and spikes go around */
           if(z.shield>0&&!b.breaker&&b.k!=='laser'){
             z.shield-=b.d;z.flash=.04;b.gone=true;
@@ -1225,6 +1233,7 @@ function waveCleared(){
   Object.assign(G,{bullets:[],bombs:[],drops:[],fires:[],throws:[],clouds:[],zaps:[],lobs:[],rockets:[],strike:null,beam:null,car:null,heli:null,missile:null,nbeam:null,mud:0,holy:0,stun:0});
   if(G.wave>M.best)M.best=G.wave;
   if(G.wave%5===0&&!G.sim)note(boast(G.wave));
+  if(G.wave===100&&!G.sim){M.score=M.bank;note('Wave 100 beaten. Bob keeps his house! Final score: '+M.bank+' coins left in the piggy bank.');}
   G.picks++;if(!G.offer)makeOffer();
   if(!G.offer){G.picks=0;G.wave++;M.wave=G.wave;G.state='ready';G.autoWait=M.auto&&!G.sim?AUTO_WAIT:0;save();renderDesk();renderSides();return;}
   /* continuous waves: the next wave starts at once and the card can be picked while it runs */
@@ -1234,7 +1243,7 @@ function waveCleared(){
 }
 function pickCard(id,all){
   if(!G.offer)return;
-  for(const c of all?G.offer.map(o=>o.id):[id])G.extra[c]=(G.extra[c]||0)+1;
+  for(const c of all?G.offer.map(o=>o.id):[id]){G.extra[c]=(G.extra[c]||0)+1;G.half[c]=(G.half[c]||0)+1;}
   G.picks--;G.offer=null;if(G.picks>0)makeOffer();if(!G.offer)G.picks=0;
   if(G.state==='cards'&&!G.offer){
     G.wave++;G.state='ready';M.wave=G.wave;      /* the next wave waits for the Start button, or for the countdown when waves are continuous */
@@ -1263,7 +1272,7 @@ function nextOf(n){
   let missing=req.filter(r=>tl(r[0])<r[1]).map(r=>{const q=NODES.find(x=>x.id===r[0]);return q.tree==='people'&&r[1]===1?q.nm:q.steps[r[1]-1].nm;});
   if(M.god)missing=[];
   if(l===0&&WIN.indexOf(n.id)>=0&&winUsed()>=winCount())missing.push('a free window: build another floor');
-  return {l,maxed:l>=n.max,cost:M.god?0:Math.round(Math.max(n.cost*Math.pow(n.grow||1.5,l),tier?15+BAL.cost*Math.pow(tier,1.3):0)),missing,msg:st.msg,ds:st.ds,nm:st.nm};
+  return {l,maxed:l>=n.max,cost:M.god?0:Math.round(Math.max(n.cost*Math.pow(n.grow||1.5,l),tier?(15+BAL.cost*Math.pow(tier,1.3))*(1+BAL.late*Math.max(0,Math.min(1,(tier-30)/20))):0)*(G.half[n.tree]>0?.5:1)),half:!M.god&&G.half[n.tree]>0,missing,msg:st.msg,ds:st.ds,nm:st.nm};
 }
 /* every purchase says what changed */
 function say(s){
@@ -1277,7 +1286,7 @@ function buyNode(id){
   const nx=nextOf(n);if(nx.maxed||nx.missing.length||M.bank<nx.cost||!slotFree(n.tree))return;
   const before=houseMax(),fb=fenceMax();
   if(nx.l===0&&WIN.indexOf(id)>=0){M.W=M.W||{};const used=WIN.filter(p=>tl(p)).map(p=>M.W[p]);let sl=0;while(used.indexOf(sl)>=0)sl++;M.W[id]=sl;}   /* the next free window */
-  M.bank-=nx.cost;M.T[id]=nx.l+1;if(!M.god)G.bought[n.tree]=(G.bought[n.tree]||0)+1;
+  M.bank-=nx.cost;M.T[id]=nx.l+1;if(!M.god){G.bought[n.tree]=(G.bought[n.tree]||0)+1;if(G.half[n.tree]>0)G.half[n.tree]--;}
   note(nx.msg);M.log.push(nx.msg);
   if(id==='floors'&&unsupported())note('The new floor sways! The house takes more damage until the Foundations are upgraded once more.');
   G.fence=Math.min(fenceMax(),G.fence+fenceMax()-fb);
@@ -1295,7 +1304,7 @@ function nodeState(n){
   if(nx.maxed){p='Complete';cls+=' maxed';}
   else if(nx.missing.length){p='Needs '+nx.missing.join(', ');cls+=' locked';}
   else if(!free){p=nx.cost+' coins · one '+TREE[n.tree]+' upgrade per turn';cls+=' wait';}
-  else{p=M.god?'Free in God mode':nx.cost+' coins';if(can)cls+=' can';}
+  else{p=M.god?'Free in God mode':nx.cost+' coins'+(nx.half?' · half price with your card':'');if(can)cls+=' can';}
   if(G.unl[n.id]&&Date.now()-G.unl[n.id]<6000)cls+=' flash';
   return {nx,can,p,cls};
 }
@@ -1343,13 +1352,13 @@ for(const s of ['L','R'])$('side'+s).addEventListener('click',e=>{
 function cardsHTML(){
   return '<div class="cards">'+G.offer.map((c,i)=>{
     const nx=NODES.filter(n=>n.tree===c.id).map(n=>[n,nextOf(n)]).filter(x=>!x[1].maxed&&!x[1].missing.length).sort((a,b)=>a[1].cost-b[1].cost)[0];
-    return '<button type="button" class="card c-'+c.id+'" id="card-'+i+'" data-act="card" data-id="'+c.id+'"><span class="cat"><span>Card</span><span>+1 upgrade</span></span><span class="nm">'+TREE[c.id]+'</span>'+
-    '<span class="ds">Buy one more '+TREE[c.id]+' upgrade this turn'+(nx?', for example '+esc(nx[1].nm||nx[0].nm):'')+'</span></button>';}).join('')+'</div>'+
+    return '<button type="button" class="card c-'+c.id+'" id="card-'+i+'" data-act="card" data-id="'+c.id+'"><span class="cat"><span>Card</span><span>+1 · half price</span></span><span class="nm">'+TREE[c.id]+'</span>'+
+    '<span class="ds">One more '+TREE[c.id]+' upgrade this turn, and one at half price'+(nx?'. For example '+esc(nx[1].nm||nx[0].nm):'')+'</span></button>';}).join('')+'</div>'+
     '<div class="row"><button class="go quiet" id="all3Btn" type="button" data-act="all3">Take all three (paid-feature slot)</button></div>';
 }
 function chipsHTML(){
   const e=Object.keys(G.extra).filter(k=>G.extra[k]);
-  return e.length?'<div class="chips">'+e.map(k=>'<span class="chip c-'+k+'">Card: +'+G.extra[k]+' '+TREE[k]+' upgrade this turn</span>').join('')+'</div>':'';
+  return e.length?'<div class="chips">'+e.map(k=>'<span class="chip c-'+k+'">Card: +'+G.extra[k]+' '+TREE[k]+' upgrade this turn'+(G.half[k]>0?', next one half price':'')+'</span>').join('')+'</div>':'';
 }
 function logHTML(){return M.log.length?'<details class="log"><summary>The story so far ('+M.log.length+')</summary><ol>'+M.log.map(s=>'<li>'+esc(s)+'</li>').join('')+'</ol></details>':'';}
 function startLabel(){return 'Start wave '+G.wave+(G.autoWait>0?' ('+Math.ceil(G.autoWait)+')':'');}
@@ -1364,13 +1373,13 @@ function renderDesk(){
     h='<div class="row"><button class="go" id="startBtn" type="button" data-act="'+(cont?'continue':'new')+'">'+(cont?'Continue at wave '+G.wave:'Start')+'</button>'+
       '<h2>Bob is not leaving his house</h2>'+(cont?'<button class="go quiet" id="newBtn" type="button" data-act="asknew">Start over from wave 1</button>':'')+'</div>'+
       (cont?warnHTML(G.wave):'')+
-      '<p>Bob shoots on his own. Buy upgrades from the panels on both sides and watch them appear. An upgrade flashes when it becomes available. Between waves you may buy <strong>one upgrade in each category</strong>. After every wave you pick <strong>one card</strong>: it lets you buy one more in its category. Damage stays from wave to wave until someone repairs it. If the house falls, you retry the same wave.</p>'+logHTML();
+      '<p>Bob shoots on his own. Buy upgrades from the panels on both sides and watch them appear. An upgrade flashes when it becomes available. Between waves you may buy <strong>one upgrade in each category</strong>. After every wave you pick <strong>one card</strong>: it lets you buy one more in its category, and one there at half price. Damage stays from wave to wave until someone repairs it. If the house falls, you retry the same wave.</p>'+logHTML();
   }else if(G.state==='wave'){
     h='<h2>Wave '+G.wave+(G.wave%5===0?' · a boss is coming':'')+(G.offer?' · pick a card while it runs':'')+'</h2>'+(G.offer?cardsHTML():chipsHTML());
   }else if(G.state==='cards'){
     h='<h2>Wave '+G.wave+' is beaten. Pick one card</h2>'+cardsHTML();
   }else if(G.state==='ready'){
-    h='<div class="row"><button class="go" id="startBtn" type="button" data-act="continue">'+startLabel()+'</button><h2>Wave '+G.wave+' is next'+(G.wave%5===0?' · a boss is coming':'')+'</h2>'+
+    h='<div class="row"><button class="go" id="startBtn" type="button" data-act="continue">'+startLabel()+'</button><h2>'+(G.wave===101&&M.score!=null?'You won! Final score: '+M.score+' coins · wave 101 is next':'Wave '+G.wave+' is next'+(G.wave%5===0?' · a boss is coming':''))+'</h2>'+
       (G.autoWait>0?'<button class="go quiet" id="holdBtn" type="button" data-act="hold">Wait, I am shopping</button>':'')+'</div>'+(G.offer?cardsHTML():'')+
       warnHTML(G.wave)+chipsHTML()+logHTML();
   }else if(G.state==='over'){
@@ -1390,7 +1399,7 @@ desk.addEventListener('click',e=>{
   else if(a==='asknew'){G.askNew=true;G.autoWait=0;renderDesk();}
   else if(a==='newno'){G.askNew=false;renderDesk();}
   else if(a==='newyes'){
-    M.T={};M.W={};M.bank=0;M.best=0;M.log=[];M.wave=1;G.bought={};G.extra={};
+    M.T={};M.W={};M.bank=0;M.best=0;M.log=[];M.wave=1;G.bought={};G.extra={};G.half={};
     Object.assign(G,{askNew:false,news:[],unl:{},was:{},L:{},wave:1,state:'menu',picks:0,offer:null,autoWait:0,runCoins:0,zombies:[],dogs:[],drones:[]});
     G.house=houseMax();G.fence=fenceMax();save();renderSides();renderDesk();
   }
@@ -1702,6 +1711,16 @@ function drawHouse(){
     else{ctx.translate(w.x-70,w.y-(GROUND-30));helperL(0,id);}
     ctx.restore();
     if(id==='tania')drawCoil();
+    const ar=tl('armory'),sx=w.right?132:56,sy=w.y+12;
+    if(ar>=3){box(sx-2,sy+2,32,6,'#8fa3b8',2);ctx.fillStyle=OUT;for(let i=0;i<4;i++){ctx.beginPath();ctx.arc(sx+2+i*8,sy+5,1.2,0,7);ctx.fill();}}
+    if(ar>=1){box(sx+19,sy-8,9,8,'#5f6f3a',1.6);ctx.fillStyle='#f2c14e';ctx.fillRect(sx+21,sy-5,5,2);}
+    if(ar>=2&&G.state==='wave'){ctx.strokeStyle='rgba(255,93,115,.55)';ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(w.x+16,w.y-2);ctx.lineTo(w.x+70,w.y+4);ctx.stroke();}
+  }
+  if(tl('armory')>=4){   /* the supply drop: a crate on a parachute, bobbing over the roof */
+    const cx=92,cy=peak-52+Math.sin(G.time*1.4)*4;
+    ctx.beginPath();ctx.arc(cx,cy-22,18,Math.PI,0);ctx.closePath();fs('#5f6f3a',2.2);line(cx-6,cy-22,cx-6,cy-38,OUT,1.2);line(cx+6,cy-22,cx+6,cy-38,OUT,1.2);
+    line(cx-18,cy-22,cx-8,cy-4,OUT,1.3);line(cx+18,cy-22,cx+8,cy-4,OUT,1.3);line(cx,cy-22,cx,cy-4,OUT,1.3);
+    box(cx-9,cy-4,18,14,'#8b5a3c',2.2);line(cx-9,cy+3,cx+9,cy+3,OUT,1.5);ctx.fillStyle='#fff1d0';ctx.fillRect(cx-3,cy-1,6,3);
   }
   if(fort>=2)sandbags(30,126,2+Math.min(2,fort-2));
   // damage cracks
@@ -1724,8 +1743,8 @@ function drawHouse(){
   }
   rr(186,GROUND-FH,86,10,4);fs(conc?'#8a8499':'#b9824a');
   if(pw){disc(264,GROUND-FH+16,5,'#ffe27a',2);glow(264,GROUND-FH+16,30,'#ffe27a',.2);}
-  if(molLv()){box(187,GROUND-FH-13,15,13,'#8b5a3c',2.5);for(let i=0;i<Math.min(3,molLv());i++)box(189+i*4,GROUND-FH-22,3,9,'#5fa777',1.5);}
-  if(tl('luck')>=2)piggy(258,GROUND-FH,6+tl('luck'));
+  if(molLv()){box(173,GROUND-13,15,13,'#8b5a3c',2.5);for(let i=0;i<Math.min(3,molLv());i++)box(175+i*4,GROUND-22,3,9,'#5fa777',1.5);}
+  if(tl('luck')>=2)piggy(198,GROUND-FH,4+tl('luck'));
   // Ross stands where the work is: at the fence while it needs him, otherwise by the house
   const rl=tl('ross');
   if(rl){   /* his look changes with every step: toolbox, tool belt and cable, hammer, welding mask and scaffolding, helmet lamp and drill */
@@ -2197,7 +2216,7 @@ function drawCoil(){
 }
 function piggy(x,y,g){
   const s=.6+.06*g,t=(G.time*.5)%1;
-  ctx.save();ctx.translate(x,y);ctx.scale(s,s);ctx.lineCap='round';
+  ctx.save();ctx.translate(x,y);ctx.scale(-s,s);ctx.lineCap='round';   /* facing the house, tucked in behind Bob */
   if(t<.5)disc(0,-35+t*20,4.5,'#f2c14e',1.5);                 /* a coin drops into the slot every couple of seconds */
   for(const lx of [-9,-4,3,8])box(lx-2,-5,4.5,5,'#f07a98',1.5);
   ctx.strokeStyle=OUT;ctx.lineWidth=3.6;ctx.beginPath();ctx.arc(-16,-14,3,-.4,4.4);ctx.stroke();ctx.strokeStyle='#f07a98';ctx.lineWidth=1.8;ctx.stroke();   /* curly tail */
