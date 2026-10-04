@@ -11,16 +11,18 @@ The web app is a complete game with test placeholders where the stores' own syst
 The game is one HTML file. A wrapper such as Capacitor turns it into an iPhone and an Android app without rewriting it.
 - [ ] Apple Developer account (yearly fee) and Google Play developer account (one-time fee): check current prices
 - [ ] Build the wrapper, lock orientation to landscape, add the icons
+- [ ] Let the web view draw under the notch or island (edge to edge). The page already asks for it with `viewport-fit=cover` and keeps its buttons inside the safe area; this was tested with simulated cut-outs, not on a real phone
 - [ ] Test on real phones, old and new. Performance on real devices has not been measured yet
 
 ## 3. Connect the three placeholders
-The game calls three things that are placeholders in the web build. Each is one function.
+The game calls four things that are placeholders in the web build. Each is one function.
 
 | In the game | Now | Store version |
 |---|---|---|
 | `showAd(why, done)` | a 3-second placeholder | the ad network's rewarded and full-screen ads; call `done` only when the reward is earned |
 | `buy(price, name, grant, back)` | a free test unlock | the store purchase for the matching product ID; call `grant` only after the store confirms |
 | `window.BobCloud = {put(key, text), get(key, callback)}` | absent | iCloud key-value storage on iPhone, the Google account backup on Android |
+| `window.BobRate = function(){}` | absent: the button only says thank you | the store's own rating sheet (Apple: the system review prompt; Google: the in-app review flow). The game asks after the bosses of waves 10 and 20, at most twice |
 
 - [ ] Purchases must be read back from the store at start-up, not from the device's own storage. In the web build anyone can unlock everything by editing browser storage; store receipts close that hole
 - [ ] "Restore purchases" in Settings must call the store (Apple requires a restore button: check)
@@ -48,7 +50,8 @@ Expect a rating around 9+ to 12+ rather than 4+. The questionnaire decides, not 
 - [ ] Search both stores for "Bob's House Defense" and close variants before committing to the name
 
 ## 7. Known weaknesses, not blockers
-- Difficulty is uneven: in simulated campaigns defeats cluster around waves 8 to 10, 17 to 20, 30 and 63 to 78
+- Difficulty was tuned with a test bot that buys the cheapest upgrade and uses no skills. Its defeats are now spread out (at most 2 on one wave on Easy, 3 on Normal, 5 on Hard), but real players buy differently
+- On Easy the last stand (waves 80 to 99) rarely beats a fully upgraded house; it does on Normal and Hard
 - The game is in English only
 - Sound is synthesised in the browser and has not been listened to on a phone
 - Vibration does not work in Safari on iPhone; in a native wrapper use the wrapper's haptics
