@@ -1,0 +1,26 @@
+# Compiles the iPhone app for the simulator, unsigned. It proves the project builds; it uploads nothing.
+name: iOS build check
+on:
+  push:
+    branches: [ios-app, main]
+    paths: ['app/**', 'index.html', '.github/workflows/ios-check.yml']
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Install and sync the game into the app
+        working-directory: app
+        run: |
+          npm ci
+          npm run sync
+      - name: Build for the simulator
+        run: |
+          xcodebuild -version
+          xcodebuild -project app/ios/App/App.xcodeproj -scheme App -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build | tail -40

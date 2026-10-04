@@ -1,0 +1,11 @@
+{
+  "appId": "com.psarrisalexandros.bobshousedefense",
+  "appName": "Bob's House Defense",
+  "webDir": "www",
+  "backgroundColor": "#16122e",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#16122e",
+    "allowsLinkPreview": false
+  }
+}

@@ -1588,7 +1588,7 @@ function sfx(k){
   const d=SFX[k];if(!d)return;const now=performance.now();if(now-(AU.t[k]||0)<d[0])return;AU.t[k]=now;
   try{d[1]();}catch(e){}
 }
-function buzz(ms){if(G.sim||OWN.vib===false)return;try{if(navigator.vibrate)navigator.vibrate(ms);}catch(e){}}
+function buzz(ms){if(G.sim||OWN.vib===false)return;try{if(window.BobBuzz)window.BobBuzz(ms);else if(navigator.vibrate)navigator.vibrate(ms);}catch(e){}}
 /* music: a quiet sixteen-step loop in A minor, scheduled a little ahead of the clock. Bass between waves, bass and melody during one */
 const BASS=[110,110,0,110,131,0,131,0,98,98,0,98,82,0,123,0],LEAD=[440,0,523,0,659,523,0,440,392,0,494,0,587,494,0,392];
 function music(){
@@ -1614,6 +1614,7 @@ function closeModal(){modal.hidden=true;modal.innerHTML='';G.modal=false;}
 const PRIVACY=/github\.io$/.test(location.hostname)?'privacy.html':'https://psarrisalexandros.github.io/bobs-house-defense/privacy.html';
 /* asked once, just before the first ad would play. Both answers are equally easy to give, and it can be changed in Settings */
 function askConsent(then){
+  if(window.BobAds){window.BobAds.consent(then);return;}
   openModal('<h2>About the ads</h2><p>Ads keep the game free. The ad partner can use your device\'s advertising ID to show ads that fit you, or show ads that are not based on you. You can change this at any time in Settings.</p>'+
     '<div class="row"><button class="go" id="coP" type="button">Personalised ads</button><button class="go" id="coN" type="button">Not personalised</button></div><a class="plink" href="'+PRIVACY+'" target="_blank" rel="noopener">Privacy policy</a>');
   const set=v=>()=>{OWN.consent=v;saveOwn();closeModal();if(then)then();};$('coP').onclick=set('p');$('coN').onclick=set('n');
@@ -1633,7 +1634,7 @@ function openSettings(){
   const wave=G.state==='wave',menu=G.state==='menu';
   openModal('<div class="row"><h2>'+(wave?'Paused':'Settings')+'</h2><button class="go" id="setX" type="button">'+(wave?'Resume':'Close')+'</button></div>'+
     '<div class="row">'+(menu?'':'<button class="go alt" id="setMenu" type="button">Main menu</button>')+'<button class="go alt" id="setShop" type="button">Shop</button></div><div class="shoplist">'+sw('snd','Sound')+sw('mus','Music')+sw('vib','Vibration')+
-    '<div class="sitem"><div><b>Ads</b><span>'+(OWN.consent==='p'?'Personalised ads allowed':OWN.consent==='n'?'Ads are not personalised':'Not chosen yet')+'</span></div><button class="tog" type="button" id="setAds">Change</button></div></div>'+
+    '<div class="sitem"><div><b>Ads</b><span>'+(window.BobAds?'Your privacy choices for ads':OWN.consent==='p'?'Personalised ads allowed':OWN.consent==='n'?'Ads are not personalised':'Not chosen yet')+'</span></div><button class="tog" type="button" id="setAds">Change</button></div></div>'+
     '<div class="row"><button class="go quiet" id="setHow" type="button">How to play</button><button class="go quiet" id="setBk" type="button">Backup</button><button class="go quiet" id="setRes" type="button">Restore purchases</button></div>'+
     '<div class="row"><a class="plink" href="'+PRIVACY+'" target="_blank" rel="noopener">Privacy policy</a><span class="fine" id="setMsg"></span></div>');
   $('setShop').onclick=()=>openShop(openSettings);
@@ -1643,7 +1644,7 @@ function openSettings(){
     $('lvY').onclick=toMenu;$('lvN').onclick=openSettings;
   };
   $('setX').onclick=closeModal;$('setHow').onclick=()=>tutorial(0);$('setBk').onclick=openBackup;$('setAds').onclick=()=>askConsent(openSettings);
-  $('setRes').onclick=()=>{const got=adoptOwn(lsGet(KEY+'-own'));cloudGet(KEY+'-own',adoptOwn);$('setMsg').textContent=window.BobCloud||got?'Purchases restored.':'Nothing new to restore. In the store version this asks the App Store or Google Play.';};
+  $('setRes').onclick=()=>{if(window.BobStore){$('setMsg').textContent='Asking the store\u2026';cloudGet(KEY+'-own',adoptOwn);window.BobStore.restore(t=>{const m=$('setMsg');if(m)m.textContent=t;});return;}const got=adoptOwn(lsGet(KEY+'-own'));cloudGet(KEY+'-own',adoptOwn);$('setMsg').textContent=window.BobCloud||got?'Purchases restored.':'Nothing new to restore. In the store version this asks the App Store or Google Play.';};
   modal.querySelectorAll('[data-set]').forEach(b=>b.onclick=()=>{const k=b.dataset.set;OWN[k]=OWN[k]===false;saveOwn();
     if(k==='snd'&&AU.ctx){if(OWN.snd===false)AU.ctx.suspend();else AU.ctx.resume();}
     openSettings();});
@@ -1666,6 +1667,7 @@ function askRate(w){
 }
 function showAd(why,cb){
   if(has('noads')){cb&&cb();return;}
+  if(window.BobAds){G.modal=true;window.BobAds.show(why,()=>{cb&&cb();},()=>{G.modal=!modal.hidden;},say);return;}   /* the game stands still while the ad plays */
   if(OWN.consent==null){askConsent(()=>showAd(why,cb));return;}
   let n=3;
   const paint=()=>{openModal('<h2>Advertisement</h2><p>A real ad plays here in the store version. This is a placeholder.</p><p class="adwhy">'+esc(why)+'</p><div class="row"><button class="go" id="adDone" type="button"'+(n>0?' disabled':'')+'>'+(n>0?'Wait '+n:'Continue')+'</button></div>');
@@ -1679,7 +1681,10 @@ const SHOP=[['x2','x2 speed, forever','Or watch one ad for 15 minutes of x2',1],
   ['all','Everything','Both speeds, auto-skills, no ads, free rewards and Sandbox mode',10]];
 /* roughly what one wave pays at the moment, so a crate is worth the same at wave 8 and at wave 80 */
 function incomeOf(w){const n=Math.min(BAL.nMax,Math.round(BAL.n0+Math.min(w,BAL.nKnee)*BAL.n1+Math.max(0,w-BAL.nKnee)*BAL.n2));return Math.max(20,Math.round(n*2.2*D().coin*(1+BAL.coin*(w-1))*[1,1.25,1.6,2.1][tl('luck')]/5)*5);}
-function buy(price,nm,grant,back){
+/* the store versions show the store's own price, in the player's currency */
+function eur(id,n){return window.BobStore?window.BobStore.price(id,n+' \u20ac'):n+' \u20ac';}
+function buy(price,nm,grant,back,id){
+  if(window.BobStore){window.BobStore.buy(id,ok=>{if(ok)grant();else if(ok===false)say('The purchase did not go through. Nothing was charged.');if(back)back();});return;}
   openModal('<h2>'+esc(nm)+' · '+price+' €</h2><p><strong>Test build:</strong> nothing is charged here. In the store version this opens the App Store or Google Play payment.</p><div class="row"><button class="go" id="buyYes" type="button">Unlock for testing</button><button class="go quiet" id="buyNo" type="button">Cancel</button></div>');
   $('buyYes').onclick=()=>{grant();closeModal();if(back)back();};$('buyNo').onclick=()=>{closeModal();if(back)back();};
 }
@@ -1688,13 +1693,13 @@ function openShop(back){
   if(typeof back!=='function')back=null;
   const c1=3*incomeOf(G.wave),c2=10*incomeOf(G.wave);
   openModal('<div class="row"><h2>Shop</h2><button class="go quiet" id="shopX" type="button">Close</button></div><div class="shoplist">'+
-    SHOP.map(i=>'<div class="sitem'+(has(i[0])?' owned':'')+'"><div><b>'+i[1]+'</b><span>'+i[2]+'</span></div><button class="go'+(has(i[0])?' quiet':'')+'" type="button" data-buy="'+i[0]+'"'+(has(i[0])?' disabled':'')+'>'+(has(i[0])?'Owned':i[3]+' €')+'</button></div>').join('')+
-    '<div class="sitem"><div><b>Supply crate</b><span>'+c1+' coins: about three waves of income</span></div><button class="go" type="button" data-crate="1">1 €</button></div>'+
-    '<div class="sitem"><div><b>Big supply crate</b><span>'+c2+' coins: about ten waves of income</span></div><button class="go" type="button" data-crate="2">3 €</button></div></div>'+
-    '<p class="fine">Test build: purchases are free here and nothing is charged.</p>');
+    SHOP.map(i=>'<div class="sitem'+(has(i[0])?' owned':'')+'"><div><b>'+i[1]+'</b><span>'+i[2]+'</span></div><button class="go'+(has(i[0])?' quiet':'')+'" type="button" data-buy="'+i[0]+'"'+(has(i[0])?' disabled':'')+'>'+(has(i[0])?'Owned':eur(i[0],i[3]))+'</button></div>').join('')+
+    '<div class="sitem"><div><b>Supply crate</b><span>'+c1+' coins: about three waves of income</span></div><button class="go" type="button" data-crate="1">'+eur('crate1',1)+'</button></div>'+
+    '<div class="sitem"><div><b>Big supply crate</b><span>'+c2+' coins: about ten waves of income</span></div><button class="go" type="button" data-crate="2">'+eur('crate2',3)+'</button></div></div>'+
+    (window.BobStore?'':'<p class="fine">Test build: purchases are free here and nothing is charged.</p>'));
   $('shopX').onclick=back||closeModal;const again=()=>openShop(back);
-  modal.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{const i=SHOP.find(x=>x[0]===b.dataset.buy);buy(i[3],i[1],()=>own(i[0]),again);});
-  modal.querySelectorAll('[data-crate]').forEach(b=>b.onclick=()=>{const big=b.dataset.crate==='2',amt=big?c2:c1;buy(big?3:1,big?'Big supply crate':'Supply crate',()=>{M.bank+=amt;save();renderSides();},again);});
+  modal.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{const i=SHOP.find(x=>x[0]===b.dataset.buy);buy(i[3],i[1],()=>own(i[0]),again,i[0]);});
+  modal.querySelectorAll('[data-crate]').forEach(b=>b.onclick=()=>{const big=b.dataset.crate==='2',amt=big?c2:c1;buy(big?3:1,big?'Big supply crate':'Supply crate',()=>{M.bank+=amt;save();renderSides();},again,big?'crate2':'crate1');});
 }
 function openBackup(){
   save();let code='';try{code='BOB1.'+btoa(unescape(encodeURIComponent(JSON.stringify(M))));}catch(e){}
@@ -1722,9 +1727,9 @@ $('speedBtn').addEventListener('click',()=>{
   const n=G.speed%3+1;
   if(speedOK(n)){setSpeed(n);return;}
   if(n===3){setSpeed(1);say('x3 speed is in the Shop.');return;}
-  openModal('<h2>x2 speed</h2><p>Watch one ad for 15 minutes of x2, or unlock it for good.</p><div class="row"><button class="go" id="x2Ad" type="button">Watch an ad · 15 minutes</button><button class="go alt" id="x2Buy" type="button">1 € · forever</button><button class="go quiet" id="x2No" type="button">Cancel</button></div>');
+  openModal('<h2>x2 speed</h2><p>Watch one ad for 15 minutes of x2, or unlock it for good.</p><div class="row"><button class="go" id="x2Ad" type="button">Watch an ad · 15 minutes</button><button class="go alt" id="x2Buy" type="button">'+eur('x2',1)+' · forever</button><button class="go quiet" id="x2No" type="button">Cancel</button></div>');
   $('x2Ad').onclick=()=>{closeModal();showAd('Reward: 15 minutes of x2 speed',()=>{OWN.x2Until=Date.now()+15*60000;saveOwn();setSpeed(2);});};
-  $('x2Buy').onclick=()=>buy(1,'x2 speed, forever',()=>{own('x2');setSpeed(2);});
+  $('x2Buy').onclick=()=>buy(1,'x2 speed, forever',()=>{own('x2');setSpeed(2);},closeModal,'x2');
   $('x2No').onclick=closeModal;
 });
 $('storeBtn').addEventListener('click',()=>openShop());$('bkBtn').addEventListener('click',openSettings);$('pauseBtn').addEventListener('click',openSettings);
@@ -1736,10 +1741,10 @@ function syncToggles(){
 }
 $('askBtn').addEventListener('click',()=>{
   if(has('auto')){M.autoSkill=!M.autoSkill;syncToggles();save();return;}
-  openModal('<h2>Auto-skills</h2><p>Skills fire by themselves as soon as they are ready. Watch one ad to unlock it for good, or buy it.</p><div class="row"><button class="go" id="auAd" type="button">Watch an ad · forever</button><button class="go alt" id="auBuy" type="button">1 €</button><button class="go quiet" id="auNo" type="button">Cancel</button></div>');
+  openModal('<h2>Auto-skills</h2><p>Skills fire by themselves as soon as they are ready. Watch one ad to unlock it for good, or buy it.</p><div class="row"><button class="go" id="auAd" type="button">Watch an ad · forever</button><button class="go alt" id="auBuy" type="button">'+eur('auto',1)+'</button><button class="go quiet" id="auNo" type="button">Cancel</button></div>');
   const on=()=>{own('auto');M.autoSkill=true;syncToggles();save();};
   $('auAd').onclick=()=>{closeModal();showAd('Reward: auto-skills, unlocked for good',on);};
-  $('auBuy').onclick=()=>buy(1,'Auto-skills',on);
+  $('auBuy').onclick=()=>buy(1,'Auto-skills',on,closeModal,'auto');
   $('auNo').onclick=closeModal;
 });
 $('autoBtn').addEventListener('click',()=>{
@@ -3034,6 +3039,9 @@ idbOpen(()=>{
   idbGet(KEY+'-own',txt=>{if(!adoptOwn(txt))idbPut(KEY+'-own',JSON.stringify(OWN));});
 });
 cloudGet(SKEY,adopt);cloudGet(KEY+'-own',adoptOwn);
+/* the store version reports what the store says is owned: granted here, whatever the device storage says */
+window.BobGame={owned(keys){let ch=false;for(const k of keys)if(!OWN[k]){OWN[k]=true;ch=true;}if(ch){saveOwn();syncToggles();}}};
+if(window.BobStore&&window.BobStore.start)window.BobStore.start();
 if(!OWN.tut&&SLOT==='main'&&M.wave===1&&!Object.keys(M.T).length)tutorial(0);   /* first run only */
 
 })();
