@@ -417,7 +417,7 @@ const WALL=[['Flimsy fence',60,50],['Wooden fence',110,74],['Taller fence',170,1
 const FORT=[{hp:0,arm:0},{hp:20,arm:.05},{hp:40,arm:0},{hp:0,arm:.1},{hp:120,arm:.1},{hp:200,arm:.1},{hp:300,arm:.05},{hp:500,arm:.05}];
 const PEOPLE=['ross','tom','sofia','tania','paul','john','irene','priest','maria','niko','max','eleni','yannis'];
 const ADD=['garage','tower','water','helipad','castle','gate','silo','dome'];
-/* the six categories. Between two waves you may buy one upgrade in each; a card adds one more in its category */
+/* the six categories. Between two waves you may buy one upgrade in each */
 const TREE={guns:'Weapons',fence:'Fence',obst:'Obstacles',fort:'Fort',size:'House',people:'People'};
 /* who needs a window. Anybody can take any free window: ground floor left, then two on every floor above */
 const WIN=['tom','sofia','tania','paul','john','maria','niko','max','eleni','yannis'];
@@ -698,7 +698,7 @@ function save(){if(G.sim)return;M.L=G.L;M.house=G.house;M.fence=G.fence;try{loca
 /* ---------- campaign state ---------- */
 const G={state:'menu',speed:1,sim:false,time:0,zombies:[],bullets:[],parts:[],texts:[],bombs:[],throws:[],mines:[],dogs:[],zaps:[],clouds:[],coinsFx:[],L:M.L||{},shake:0,
   wave:M.wave||1,runCoins:0,coinFrac:0,kick:0,banner:0,toastT:0,picks:0,offer:null,tab:{L:'guns',R:'size'},
-  ang:{bob:.15,tom:.1,mg:.1,sg:.1,rpg:.1,flak:-.8},dome:0,car:null,heli:null,missile:null,drones:[],lobs:[],rockets:[],bursts:[],bees:[],bought:{},extra:{},half:{},bridge:0,hippoT:0,hippoA:0,nuke:0,stun:0,bass:0,scream:null,nbeam:null,ufo:null,mariaSwing:0,autoWait:0,unl:{},was:{},
+  ang:{bob:.15,tom:.1,mg:.1,sg:.1,rpg:.1,flak:-.8},dome:0,car:null,heli:null,missile:null,drones:[],lobs:[],rockets:[],bursts:[],bees:[],bought:{},bridge:0,hippoT:0,hippoA:0,nuke:0,stun:0,bass:0,scream:null,nbeam:null,ufo:null,mariaSwing:0,autoWait:0,unl:{},was:{},
   cd:{air:0,mud:0,holy:0,beam:0},mud:0,holy:0,strike:null,beam:null,drops:[],fires:[],fence:0};
 function tl(id){return M.T[id]||0;}
 function cl(id){return G.L[id]||0;}
@@ -734,7 +734,7 @@ function winCount(){return 2*floors()-1;}
 function winUsed(){return WIN.filter(p=>tl(p)).length;}
 function wpos(id){const sl=(M.W&&M.W[id])||0,f=Math.ceil(sl/2),right=sl>0&&sl%2===0;return {x:right?148:70,y:GROUND-FH*f-30,f,right};}
 function pp(id,dx,dy){const w=wpos(id);return {x:w.x+dx,y:w.y+dy};}
-function slotFree(tree){return M.god||(G.bought[tree]||0)<1+(G.extra[tree]||0);}
+function slotFree(tree){return M.god||!G.bought[tree];}
 G.house=M.house==null?houseMax():Math.min(M.house,houseMax());
 G.fence=M.fence==null?fenceMax():Math.min(M.fence,fenceMax());
 
@@ -745,7 +745,7 @@ function startWave(w,fresh){
     carT:5,heliT:9,siloT:12,autoT:2,bubble:null,johnK:Math.floor(Math.random()*4),
     mariaT:1,nikoT:1,fwT:6,djT:6,markT:2,ufoT:1,stun:0,bass:0,scream:null,nbeam:null,nuke:0,lobs:[],rockets:[],bees:[],ufo:tl('irene')>=8?{x:700}:null,car:null,heli:null,missile:null,kick:0,banner:1.8,
     mud:0,holy:0,strike:null,beam:null,drops:[],fires:[]});
-  G.hm=scaleOf(w).hp;G.bought={};G.extra={};G.half={};G.hippoT=0;
+  G.hm=scaleOf(w).hp;G.bought={};G.hippoT=0;
   G.dome=AD(8)?(200+20*w)*.2*G.hm:0;
   if(tl('irene')>=4)for(let i=0;i<3;i++)G.mines.push({x:896+i*22+Math.random()*6});
   for(let i=0;i<dogCount();i++)G.dogs.push({x:KENNEL,st:'home',cd:1+i*1.2,z:null,t:0,breed:i});
@@ -1219,13 +1219,6 @@ function update(dt){
   G.zombies=G.zombies.filter(z=>!z.dead);
   if(!G.queue.length&&!G.zombies.length)waveCleared();
 }
-function openTrees(){return Object.keys(TREE).filter(t=>NODES.some(n=>n.tree===t&&tl(n.id)<n.max));}
-/* three random categories; the one you pick lets you buy one more upgrade there this turn */
-function makeOffer(){
-  const pool=openTrees(),o=[];
-  while(o.length<3&&pool.length)o.push({id:pool.splice(Math.floor(Math.random()*pool.length),1)[0]});
-  G.offer=o.length?o:null;
-}
 function waveCleared(){
   /* nothing resets between waves. Bob patches a little; Ross repairs a share that grows with his level, fence and house alike */
   const fix=repairShare();
@@ -1234,22 +1227,8 @@ function waveCleared(){
   if(G.wave>M.best)M.best=G.wave;
   if(G.wave%5===0&&!G.sim)note(boast(G.wave));
   if(G.wave===100&&!G.sim){M.score=M.bank;note('Wave 100 beaten. Bob keeps his house! Final score: '+M.bank+' coins left in the piggy bank.');}
-  G.picks++;if(!G.offer)makeOffer();
+  G.picks=0;G.offer=null;
   if(!G.offer){G.picks=0;G.wave++;M.wave=G.wave;G.state='ready';G.autoWait=M.auto&&!G.sim?AUTO_WAIT:0;save();renderDesk();renderSides();return;}
-  /* continuous waves: the next wave starts at once and the card can be picked while it runs */
-  /* continuous waves: the shop opens for a few seconds, the card waits beside it, then the next wave starts by itself */
-  if(M.auto&&!G.sim){G.wave++;M.wave=G.wave;G.state='ready';G.autoWait=AUTO_WAIT;save();renderDesk();renderSides();return;}
-  G.state='cards';save();renderDesk();renderSides();
-}
-function pickCard(id,all){
-  if(!G.offer)return;
-  for(const c of all?G.offer.map(o=>o.id):[id]){G.extra[c]=(G.extra[c]||0)+1;G.half[c]=(G.half[c]||0)+1;}
-  G.picks--;G.offer=null;if(G.picks>0)makeOffer();if(!G.offer)G.picks=0;
-  if(G.state==='cards'&&!G.offer){
-    G.wave++;G.state='ready';M.wave=G.wave;      /* the next wave waits for the Start button, or for the countdown when waves are continuous */
-    G.autoWait=M.auto&&!G.sim?AUTO_WAIT:0;
-  }else if(G.autoWait>0)G.autoWait=AUTO_WAIT;
-  save();renderDesk();renderSides();
 }
 /* every fifth wave: a little boasting. The share is a formula that climbs with the wave, not a measurement */
 function boast(w){
@@ -1272,7 +1251,7 @@ function nextOf(n){
   let missing=req.filter(r=>tl(r[0])<r[1]).map(r=>{const q=NODES.find(x=>x.id===r[0]);return q.tree==='people'&&r[1]===1?q.nm:q.steps[r[1]-1].nm;});
   if(M.god)missing=[];
   if(l===0&&WIN.indexOf(n.id)>=0&&winUsed()>=winCount())missing.push('a free window: build another floor');
-  return {l,maxed:l>=n.max,cost:M.god?0:Math.round(Math.max(n.cost*Math.pow(n.grow||1.5,l),tier?(15+BAL.cost*Math.pow(tier,1.3))*(1+BAL.late*Math.max(0,Math.min(1,(tier-30)/20))):0)*(G.half[n.tree]>0?.5:1)),half:!M.god&&G.half[n.tree]>0,missing,msg:st.msg,ds:st.ds,nm:st.nm};
+  return {l,maxed:l>=n.max,cost:M.god?0:Math.round(Math.max(n.cost*Math.pow(n.grow||1.5,l),tier?(15+BAL.cost*Math.pow(tier,1.3))*(1+BAL.late*Math.max(0,Math.min(1,(tier-30)/20))):0)),missing,msg:st.msg,ds:st.ds,nm:st.nm};
 }
 /* every purchase says what changed */
 function say(s){
@@ -1286,7 +1265,7 @@ function buyNode(id){
   const nx=nextOf(n);if(nx.maxed||nx.missing.length||M.bank<nx.cost||!slotFree(n.tree))return;
   const before=houseMax(),fb=fenceMax();
   if(nx.l===0&&WIN.indexOf(id)>=0){M.W=M.W||{};const used=WIN.filter(p=>tl(p)).map(p=>M.W[p]);let sl=0;while(used.indexOf(sl)>=0)sl++;M.W[id]=sl;}   /* the next free window */
-  M.bank-=nx.cost;M.T[id]=nx.l+1;if(!M.god){G.bought[n.tree]=(G.bought[n.tree]||0)+1;if(G.half[n.tree]>0)G.half[n.tree]--;}
+  M.bank-=nx.cost;M.T[id]=nx.l+1;if(!M.god)G.bought[n.tree]=1;
   note(nx.msg);M.log.push(nx.msg);
   if(id==='floors'&&unsupported())note('The new floor sways! The house takes more damage until the Foundations are upgraded once more.');
   G.fence=Math.min(fenceMax(),G.fence+fenceMax()-fb);
@@ -1304,7 +1283,7 @@ function nodeState(n){
   if(nx.maxed){p='Complete';cls+=' maxed';}
   else if(nx.missing.length){p='Needs '+nx.missing.join(', ');cls+=' locked';}
   else if(!free){p=nx.cost+' coins · one '+TREE[n.tree]+' upgrade per turn';cls+=' wait';}
-  else{p=M.god?'Free in God mode':nx.cost+' coins'+(nx.half?' · half price with your card':'');if(can)cls+=' can';}
+  else{p=M.god?'Free in God mode':nx.cost+' coins';if(can)cls+=' can';}
   if(G.unl[n.id]&&Date.now()-G.unl[n.id]<6000)cls+=' flash';
   return {nx,can,p,cls};
 }
@@ -1314,7 +1293,7 @@ function renderSides(){
   for(const s in SD){
     const cur=G.tab[s];
     let h='<div class="tabs" role="tablist">'+SD[s].map(t=>'<button type="button" role="tab" class="tab t-'+t[0]+tabCls(t[0],cur)+'" id="tab-'+t[0]+'" data-tab="'+t[0]+'" data-side="'+s+'" aria-selected="'+(t[0]===cur)+'">'+t[1]+'</button>').join('')+'</div>';
-    h+='<div class="turn">'+(M.god?'God mode: no limits':slotFree(cur)?'This turn you can still buy '+(1+(G.extra[cur]||0)-(G.bought[cur]||0))+' '+TREE[cur]+' upgrade'+(1+(G.extra[cur]||0)-(G.bought[cur]||0)>1?'s':''):'Bought this turn. More after the next wave, or with a '+TREE[cur]+' card')+'</div>';
+    h+='<div class="turn">'+(M.god?'God mode: no limits':slotFree(cur)?'You can buy one '+TREE[cur]+' upgrade this turn':'Bought this turn. One more after the next wave')+'</div>';
     h+='<div class="nodes t-'+cur+'" role="tabpanel">'+NODES.filter(n=>n.tree===cur).map(n=>{
       const st=nodeState(n),l=st.nx.l;
       let title=n.nm,d=n.ds;
@@ -1349,45 +1328,32 @@ for(const s of ['L','R'])$('side'+s).addEventListener('click',e=>{
   if(t){G.tab[t.dataset.side]=t.dataset.tab;renderSides();return;}
   const b=e.target.closest('[data-id]');if(b&&!b.disabled)buyNode(b.dataset.id);
 });
-function cardsHTML(){
-  return '<div class="cards">'+G.offer.map((c,i)=>{
-    const nx=NODES.filter(n=>n.tree===c.id).map(n=>[n,nextOf(n)]).filter(x=>!x[1].maxed&&!x[1].missing.length).sort((a,b)=>a[1].cost-b[1].cost)[0];
-    return '<button type="button" class="card c-'+c.id+'" id="card-'+i+'" data-act="card" data-id="'+c.id+'"><span class="cat"><span>Card</span><span>+1 · half price</span></span><span class="nm">'+TREE[c.id]+'</span>'+
-    '<span class="ds">One more '+TREE[c.id]+' upgrade this turn, and one at half price'+(nx?'. For example '+esc(nx[1].nm||nx[0].nm):'')+'</span></button>';}).join('')+'</div>'+
-    '<div class="row"><button class="go quiet" id="all3Btn" type="button" data-act="all3">Take all three (paid-feature slot)</button></div>';
-}
-function chipsHTML(){
-  const e=Object.keys(G.extra).filter(k=>G.extra[k]);
-  return e.length?'<div class="chips">'+e.map(k=>'<span class="chip c-'+k+'">Card: +'+G.extra[k]+' '+TREE[k]+' upgrade this turn'+(G.half[k]>0?', next one half price':'')+'</span>').join('')+'</div>':'';
-}
 function logHTML(){return M.log.length?'<details class="log"><summary>The story so far ('+M.log.length+')</summary><ol>'+M.log.map(s=>'<li>'+esc(s)+'</li>').join('')+'</ol></details>':'';}
 function startLabel(){return 'Start wave '+G.wave+(G.autoWait>0?' ('+Math.ceil(G.autoWait)+')':'');}
 function renderDesk(){
   if(G.sim)return;
   let h='';
   if(G.askNew){
-    h='<h2>Are you sure you want to start from the beginning?</h2><p><strong>All your progress will be lost:</strong> upgrades, coins, cards and the waves you have beaten.</p>'+
+    h='<h2>Are you sure you want to start from the beginning?</h2><p><strong>All your progress will be lost:</strong> upgrades, coins and the waves you have beaten.</p>'+
       '<div class="row"><button class="go" id="noBtn" type="button" data-act="newno">No, keep my progress</button><button class="go quiet" id="yesBtn" type="button" data-act="newyes">Yes, start from wave 1</button></div>';
   }else if(G.state==='menu'){
     const cont=G.wave>1;
     h='<div class="row"><button class="go" id="startBtn" type="button" data-act="'+(cont?'continue':'new')+'">'+(cont?'Continue at wave '+G.wave:'Start')+'</button>'+
       '<h2>Bob is not leaving his house</h2>'+(cont?'<button class="go quiet" id="newBtn" type="button" data-act="asknew">Start over from wave 1</button>':'')+'</div>'+
       (cont?warnHTML(G.wave):'')+
-      '<p>Bob shoots on his own. Buy upgrades from the panels on both sides and watch them appear. An upgrade flashes when it becomes available. Between waves you may buy <strong>one upgrade in each category</strong>. After every wave you pick <strong>one card</strong>: it lets you buy one more in its category, and one there at half price. Damage stays from wave to wave until someone repairs it. If the house falls, you retry the same wave.</p>'+logHTML();
+      '<p>Bob shoots on his own. Buy upgrades from the panels on both sides and watch them appear. An upgrade flashes when it becomes available. Between waves you may buy <strong>one upgrade in each category</strong>. Damage stays from wave to wave until someone repairs it. If the house falls, you retry the same wave.</p>'+logHTML();
   }else if(G.state==='wave'){
-    h='<h2>Wave '+G.wave+(G.wave%5===0?' · a boss is coming':'')+(G.offer?' · pick a card while it runs':'')+'</h2>'+(G.offer?cardsHTML():chipsHTML());
-  }else if(G.state==='cards'){
-    h='<h2>Wave '+G.wave+' is beaten. Pick one card</h2>'+cardsHTML();
+    h='<h2>Wave '+G.wave+(G.wave%5===0?' · a boss is coming':'')+'</h2>';
   }else if(G.state==='ready'){
     h='<div class="row"><button class="go" id="startBtn" type="button" data-act="continue">'+startLabel()+'</button><h2>'+(G.wave===101&&M.score!=null?'You won! Final score: '+M.score+' coins · wave 101 is next':'Wave '+G.wave+' is next'+(G.wave%5===0?' · a boss is coming':''))+'</h2>'+
-      (G.autoWait>0?'<button class="go quiet" id="holdBtn" type="button" data-act="hold">Wait, I am shopping</button>':'')+'</div>'+(G.offer?cardsHTML():'')+
-      warnHTML(G.wave)+chipsHTML()+logHTML();
+      (G.autoWait>0?'<button class="go quiet" id="holdBtn" type="button" data-act="hold">Wait, I am shopping</button>':'')+'</div>'+
+      warnHTML(G.wave)+logHTML();
   }else if(G.state==='over'){
     h='<div class="row"><button class="go" id="againBtn" type="button" data-act="retry">Retry wave '+G.wave+'</button><h2>The house fell on wave '+G.wave+'</h2></div>'+
       '<p>You collected <strong>'+G.runCoins+' coins</strong> in this attempt. Spend them on upgrades, then try the same wave again. Overnight the house and fence are patched up to 60%.</p>'+
       '<div class="row"><button class="go alt" id="doubleBtn" type="button" data-act="double"'+(G.doubled||!G.runCoins?' disabled':'')+'>'+
       (G.doubled?'Coins doubled':'Double coins (rewarded-ad slot)')+'</button>'+
-      '<button class="go quiet" id="newBtn" type="button" data-act="asknew">Start over from wave 1</button></div>'+chipsHTML()+logHTML();
+      '<button class="go quiet" id="newBtn" type="button" data-act="asknew">Start over from wave 1</button></div>'+logHTML();
   }
   desk.innerHTML=h;desk.dataset.st=G.askNew?'ask':G.state;
 }
@@ -1399,15 +1365,13 @@ desk.addEventListener('click',e=>{
   else if(a==='asknew'){G.askNew=true;G.autoWait=0;renderDesk();}
   else if(a==='newno'){G.askNew=false;renderDesk();}
   else if(a==='newyes'){
-    M.T={};M.W={};M.bank=0;M.best=0;M.log=[];M.wave=1;G.bought={};G.extra={};G.half={};
+    M.T={};M.W={};M.bank=0;M.best=0;M.log=[];M.wave=1;G.bought={};
     Object.assign(G,{askNew:false,news:[],unl:{},was:{},L:{},wave:1,state:'menu',picks:0,offer:null,autoWait:0,runCoins:0,zombies:[],dogs:[],drones:[]});
     G.house=houseMax();G.fence=fenceMax();save();renderSides();renderDesk();
   }
   else if(a==='continue'){G.autoWait=0;begin(()=>startWave(G.wave));}
   else if(a==='hold'){G.autoWait=0;renderDesk();}
   else if(a==='retry')begin(()=>{patchUp();startWave(G.wave);});
-  else if(a==='card')pickCard(id);
-  else if(a==='all3')pickCard(null,true);
   else if(a==='double'&&!G.doubled){G.doubled=true;M.bank+=G.runCoins;saveRepaired();renderDesk();}
 });
 $('speedBtn').addEventListener('click',()=>{G.speed=G.speed%3+1;$('speedBtn').textContent='x'+G.speed;});
@@ -1448,7 +1412,7 @@ toast.addEventListener('click',()=>{toast.hidden=true;G.toastT=0;});
 const hud={};
 function setText(id,v){if(hud[id]!==v){hud[id]=v;$(id).textContent=v;}}
 function setW(id,v){if(hud[id+'w']!==v){hud[id+'w']=v;$(id).style.width=v+'%';}}
-function isIdle(){return G.state==='menu'||G.state==='cards'||G.state==='ready';}
+function isIdle(){return G.state==='menu'||G.state==='ready';}
 function updateHud(){
   const idle=isIdle();
   const hm=houseMax(),hh=Math.min(hm,G.house),fm=fenceMax(),ff=Math.min(fm,G.fence);
@@ -2634,7 +2598,7 @@ probe(list){
   startWave(1,true);let g=0;
   while(G.wave<=100&&g++<8e7){
     if(G.state==='wave')update(STEP);
-    else if(G.state==='cards')pickCard(G.offer[Math.floor(Math.random()*G.offer.length)].id);
+    
     else if(G.state==='ready'){
       botBuy();
       if(list.indexOf(G.wave)>=0){let lo=Math.log(.2),hi=Math.log(1e6);for(let i=0;i<12;i++){const mid=(lo+hi)/2;if(trial(G.wave,Math.exp(mid))&&trial(G.wave,Math.exp(mid)))lo=mid;else hi=mid;}P[G.wave]=Math.round(Math.exp(lo)*10)/10;}
@@ -2657,7 +2621,7 @@ wave(T,w,L){
   startWave(1,true);let total=0,g=0,t0=G.time;
   while(G.wave<=maxWave&&total<maxTries&&g++<4e7){
     if(G.state==='wave')update(STEP);
-    else if(G.state==='cards'){secs[G.wave]=Math.round(G.time-t0);pickCard(G.offer[Math.floor(Math.random()*G.offer.length)].id);}
+    
     else if(G.state==='ready'){botBuy();t0=G.time;startWave(G.wave);}
     else if(G.state==='over'){tries[G.wave]=(tries[G.wave]||0)+1;total++;botBuy();patchUp();t0=G.time;startWave(G.wave);}
   }
@@ -2666,7 +2630,7 @@ wave(T,w,L){
   G.house=M.house==null?houseMax():M.house;G.fence=M.fence==null?fenceMax():M.fence;renderDesk();renderSides();return out;
 },sim(runs){
   const keep=JSON.stringify(M),keepG={L:G.L,wave:G.wave,house:G.house},out=[];G.sim=true;M.T={};M.god=false;
-  for(let i=0;i<runs;i++){startWave(1,true);let g=0;while(G.state!=='over'&&g++<3e6){if(G.state==='wave')update(STEP);else if(G.state==='cards')pickCard(G.offer[Math.floor(Math.random()*G.offer.length)].id);else startWave(G.wave);}out.push(G.wave);}
+  for(let i=0;i<runs;i++){startWave(1,true);let g=0;while(G.state!=='over'&&g++<3e6){if(G.state==='wave')update(STEP);else startWave(G.wave);}out.push(G.wave);}
   M=JSON.parse(keep);G.sim=false;Object.assign(G,keepG,{state:'menu',zombies:[],bullets:[],bombs:[],parts:[],texts:[],throws:[],mines:[],dogs:[],drones:[],clouds:[],zaps:[],picks:0,offer:null,car:null,heli:null,missile:null,bubble:null});G.fence=fenceMax();renderDesk();renderSides();return out;
 }};
 })();
