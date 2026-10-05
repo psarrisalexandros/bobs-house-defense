@@ -8,7 +8,9 @@ The whole game is `index.html`: code, drawings, sounds and fonts are inside it, 
 - `docs/STORE-LISTING.md`: store texts, purchases and ad placements
 - `docs/RELEASE-CHECKLIST.md`: what is left before the App Store and Google Play
 - `LICENSES.md`: font licences
-- `app/`: the iPhone app (Capacitor wrapper with real ads, purchases, iCloud save and rating)
+- `app/`: the iPhone and Android apps (Capacitor wrapper with real ads, purchases, account save and rating)
 - `docs/APP-STORE-STEPS.md`: the steps from here to the App Store
+- `docs/PLAY-STORE-STEPS.md`: the steps from here to Google Play (in Greek)
+- `docs/play-store-assets/`: icon, feature graphic and screenshots for the Play listing
 
 Purchases and ads in this web build are test placeholders: nothing is charged and no ad network is contacted.

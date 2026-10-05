@@ -14,7 +14,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: 21 }
       - name: Install and sync the game into the app
         working-directory: app
@@ -33,7 +33,9 @@ jobs:
         run: |
           APK=app/build/outputs/apk/debug/app-debug.apk
           AAPT=$(ls $ANDROID_HOME/build-tools/*/aapt2 | tail -1)
-          $AAPT dump badging $APK | grep -E "^package|sdkVersion|targetSdkVersion|uses-permission|application-label:" | while read -r l; do echo "::notice::$l"; done
+          $AAPT dump badging $APK > badging.txt
+          echo "::notice::$(grep -E '^package' badging.txt | cut -c1-140) / min SDK $(grep -oE "^sdkVersion:'[0-9]+'" badging.txt | grep -oE '[0-9]+') / target SDK $(grep -oE "targetSdkVersion:'[0-9]+'" badging.txt | grep -oE '[0-9]+')"
+          echo "::notice::permissions: $(grep -oE "uses-permission: name='[^']+'" badging.txt | sed "s/.*name='//;s/'//;s/.*\.//" | tr '\n' ' ')"
           unzip -l $APK | grep -E "assets/public/(index.html|native.js|config.js|cordova_plugins.js)" || { echo "::error::the game files are missing from the APK"; exit 1; }
           # 16 KB page size: every native library must be aligned for it
           unzip -l $APK | grep -c "\.so$" | xargs -I{} echo "::notice::native libraries in the APK: {}"
