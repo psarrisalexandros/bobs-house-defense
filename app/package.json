@@ -6,11 +6,15 @@
   "scripts": {
     "www": "node build-www.mjs",
     "sync": "node build-www.mjs && cap sync ios",
-    "open": "cap open ios"
+    "open": "cap open ios",
+    "sync:android": "node build-www.mjs && cap sync android",
+    "open:android": "cap open android",
+    "art": "python3 art/art.py"
   },
   "dependencies": {
     "@capacitor-community/admob": "^8.1.0",
     "@capacitor-community/in-app-review": "^8.0.0",
+    "@capacitor/android": "^8.5.2",
     "@capacitor/core": "^8.5.2",
     "@capacitor/haptics": "^8.0.2",
     "@capacitor/ios": "^8.5.2",

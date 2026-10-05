@@ -2,7 +2,7 @@
    Loaded before the game, and only inside the app. It gives the game four things the web build fakes:
      window.BobAds    real rewarded and full-screen ads, with the ad network's own consent form
      window.BobStore  real purchases through the store, read back from the store at start-up
-     window.BobCloud  a copy of the save in the player's iCloud, which survives a reinstall
+     window.BobCloud  a copy of the save in the player's iCloud (iPhone) or Google account backup (Android), which survives a reinstall
      window.BobRate   the store's own rating sheet
    plus window.BobBuzz for haptics. In a browser none of this runs and the game uses its placeholders. */
 (function () {
@@ -19,11 +19,12 @@
   var AdMob = plug('AdMob'), UNITS = (CFG.ads || {})[PLATFORM] || {}, TESTING = !!(CFG.ads || {}).testing;
   if (AdMob && UNITS.rewarded) {
     var readyP = null, loaded = { inter: null, reward: null };
-    /* consent first (the certified form, shown only where the law asks for it), then Apple's tracking question, then the ad network starts */
+    /* consent first (the certified form, shown only where the law asks for it), then on iPhone Apple's tracking question, then the ad network starts */
     var consentFlow = function () {
       return AdMob.requestConsentInfo().then(function (info) {
         if (info && info.isConsentFormAvailable && info.status === 'REQUIRED') return AdMob.showConsentForm();
       }).catch(function () {}).then(function () {
+        if (PLATFORM !== 'ios') return;                 /* the tracking question exists on iPhone only */
         return AdMob.trackingAuthorizationStatus().then(function (r) {
           if (r && r.status === 'notDetermined') return AdMob.requestTrackingAuthorization();
         });

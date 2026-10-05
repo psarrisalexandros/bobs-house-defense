@@ -1,0 +1,58 @@
+# Builds the signed Android App Bundle (.aab), the file that is uploaded to the Play Console.
+# Run it by hand: GitHub > Actions > "Android release bundle" > Run workflow, then download the bundle under Artifacts.
+# It needs four repository secrets, described in docs/PLAY-STORE-STEPS.md:
+#   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+name: Android release bundle
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version shown in the store (for example 1.0.0)'
+        required: true
+        default: '1.0.0'
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - name: Install and sync the game into the app
+        working-directory: app
+        run: |
+          npm ci
+          npm run sync:android
+      - name: Warn about test ad IDs
+        run: |
+          if grep -q '3940256099942544' app/native/config.js app/android/app/src/main/res/values/strings.xml; then
+            echo "::warning::The ad IDs are still Google's test IDs. This bundle is fine for the internal and closed test tracks, but must not go to production."
+          fi
+      - name: Build and sign the bundle
+        working-directory: app/android
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          BOB_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          BOB_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          BOB_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          BOB_VERSION_CODE: ${{ github.run_number }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -o pipefail
+          if [ -z "$KEYSTORE_B64" ]; then echo "::error::The upload key is missing. Add the four ANDROID_ secrets (docs/PLAY-STORE-STEPS.md, step 4)."; exit 1; fi
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          export BOB_KEYSTORE_FILE="$RUNNER_TEMP/upload.jks"
+          sed -i "s/versionName \"[^\"]*\"/versionName \"$VERSION\"/" app/build.gradle
+          chmod +x gradlew
+          ./gradlew --no-daemon bundleRelease > build.log 2>&1 || { grep -E "error:|FAILED|What went wrong" -A3 build.log | head -40 | while read -r l; do echo "::error::$l"; done; tail -80 build.log; exit 1; }
+          AAB=app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify "$AAB" > verify.log 2>&1 && grep -q "jar verified" verify.log || { cat verify.log; echo "::error::the bundle is not signed"; exit 1; }
+          echo "::notice::Signed bundle, version $VERSION, version code $BOB_VERSION_CODE, $(du -h "$AAB" | cut -f1). Upload key SHA-256: $(keytool -list -v -keystore "$BOB_KEYSTORE_FILE" -storepass "$BOB_KEYSTORE_PASSWORD" -alias "$BOB_KEY_ALIAS" 2>/dev/null | grep 'SHA256:' | head -1 | sed 's/.*SHA256: //')"
+          rm -f "$RUNNER_TEMP/upload.jks"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bobs-house-defense-${{ inputs.version }}-${{ github.run_number }}-aab
+          path: app/android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 30

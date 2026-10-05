@@ -12,5 +12,10 @@
     "SystemBars": {
       "hidden": true
     }
+  },
+  "android": {
+    "backgroundColor": "#16122e",
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false
   }
 }
