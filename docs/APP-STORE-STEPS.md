@@ -12,7 +12,7 @@ The iPhone app is in `app/`. It is the same game as the web version, wrapped wit
 The steps below need your Apple and Google accounts, so only you can do them. Do them in order.
 
 ## 1. Register the app with Apple
-1. https://developer.apple.com/account > Certificates, Identifiers & Profiles > Identifiers > add an **App ID** with bundle ID `com.psarrisalexandros.bobshousedefense`. Tick the **iCloud** capability (key-value storage needs it). In-App Purchase is on by default.
+1. https://developer.apple.com/account > Certificates, Identifiers & Profiles > Identifiers > add an **App ID** with bundle ID `com.bobshousedefense.game`. Tick the **iCloud** capability (key-value storage needs it). In-App Purchase is on by default.
 2. https://appstoreconnect.apple.com > Apps > **New App**: platform iOS, name "Bob's House Defense", language English, the bundle ID above, any SKU (for example `bobshouse1`).
 
 The bundle ID can never be changed after the first upload. If you want a different one, say so before step 4.
@@ -81,6 +81,6 @@ Texts are in `docs/STORE-LISTING.md`. Still needed:
 ## What has and has not been tested
 - Tested here with a simulated store, ad network and iCloud: purchase confirmed, cancelled and failed; rewarded ad watched, closed early and unavailable; consent order; save and purchases coming back after the device storage is wiped; restore; the web version unchanged
 - Not tested: anything on a real iPhone, a real purchase, a real ad, real iCloud, and the signed upload to App Store Connect. Expect to fix small things after the first TestFlight build
-- The app icon is the 512-pixel web icon enlarged to 1024. It should be redrawn at full size before release
+- The app icon is drawn at 1024 pixels with the game's own drawing code (`app/tools/make-icon.py`)
 - iPhone only for now; it runs on iPad in iPhone mode
 - Refunded purchases are not taken away again on the device
