@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.psarrisalexandros.bobshousedefense"
+    namespace = "com.bobshousedefense.game"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.psarrisalexandros.bobshousedefense"
+        applicationId "com.bobshousedefense.game"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         /* the store needs a higher number for every upload: the GitHub build passes its run number */

@@ -9,7 +9,7 @@
     "open": "cap open ios",
     "sync:android": "node build-www.mjs && cap sync android",
     "open:android": "cap open android",
-    "art": "python3 art/art.py"
+    "art": "python3 tools/make-android-art.py"
   },
   "dependencies": {
     "@capacitor-community/admob": "^8.1.0",

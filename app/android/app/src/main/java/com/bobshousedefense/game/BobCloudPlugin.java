@@ -1,4 +1,4 @@
-package com.psarrisalexandros.bobshousedefense;
+package com.bobshousedefense.game;
 
 import android.app.backup.BackupManager;
 import android.content.Context;
