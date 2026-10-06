@@ -1,0 +1,21 @@
+{
+	"appId": "com.bobshousedefense.game",
+	"appName": "Bob's House Defense",
+	"webDir": "www",
+	"backgroundColor": "#16122e",
+	"ios": {
+		"contentInset": "never",
+		"backgroundColor": "#16122e",
+		"allowsLinkPreview": false
+	},
+	"plugins": {
+		"SystemBars": {
+			"hidden": true
+		}
+	},
+	"android": {
+		"backgroundColor": "#16122e",
+		"allowMixedContent": false,
+		"webContentsDebuggingEnabled": false
+	}
+}
