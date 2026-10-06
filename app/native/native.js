@@ -142,6 +142,27 @@
     };
   }
 
+  /* ---------------- review access (Android only) ----------------
+     Google Play asks that its reviewers can reach paid content without paying. A review code typed into
+     Settings > Backup > "Restore from code" unlocks the paid features on that device. Only the code's SHA-256
+     fingerprint is stored here; the code itself is given to Google in the Play Console and nowhere else.
+     It is not built into the iPhone app: Apple's reviewers use sandbox purchases instead. */
+  var REVIEW = (CFG.review || {})[PLATFORM];
+  if (REVIEW && window.crypto && crypto.subtle && window.TextEncoder) {
+    document.addEventListener('click', function (ev) {
+      var t = ev.target && ev.target.closest ? ev.target.closest('#bkLoad') : null;
+      var box = document.getElementById('bkIn'), text = box ? box.value.trim().toUpperCase() : '';
+      if (!t || text.indexOf('BOB-REVIEW-') !== 0) return;      /* anything else is an ordinary backup code */
+      ev.preventDefault(); ev.stopPropagation();
+      var say = function (m) { var el = document.getElementById('bkMsg'); if (el) el.textContent = m; };
+      crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)).then(function (buf) {
+        var hex = Array.prototype.map.call(new Uint8Array(buf), function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+        if (hex === REVIEW && window.BobGame) { window.BobGame.owned(['all']); say('Review access: all paid features are unlocked on this device.'); }
+        else say('That review code is not valid.');
+      }, function () { say('That review code is not valid.'); });
+    }, true);
+  }
+
   /* ---------------- rating and haptics ---------------- */
   var Review = plug('InAppReview'), Haptics = plug('Haptics');
   if (Review) window.BobRate = function () { Review.requestReview().catch(function () {}); };

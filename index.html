@@ -1611,7 +1611,7 @@ document.addEventListener('visibilitychange',()=>{if(AU.ctx){if(document.hidden)
 const modal=document.createElement('div');modal.className='modal';modal.hidden=true;document.body.append(modal);
 function openModal(html){modal.innerHTML='<div class="sheet" role="dialog" aria-modal="true">'+html+'</div>';modal.hidden=false;G.modal=true;}
 function closeModal(){modal.hidden=true;modal.innerHTML='';G.modal=false;}
-const PRIVACY=/github\.io$/.test(location.hostname)?'privacy.html':'https://psarrisalexandros.github.io/bobs-house-defense/privacy.html';
+const PRIVACY=/github\.io$/.test(location.hostname)?'privacy.html':'https://psarrisalexandros.github.io/bobs-house-defense/privacy.html',TERMS=PRIVACY.replace('privacy.html','terms.html');
 /* asked once, just before the first ad would play. Both answers are equally easy to give, and it can be changed in Settings */
 function askConsent(then){
   if(window.BobAds){window.BobAds.consent(then);return;}
@@ -1636,7 +1636,7 @@ function openSettings(){
     '<div class="row">'+(menu?'':'<button class="go alt" id="setMenu" type="button">Main menu</button>')+'<button class="go alt" id="setShop" type="button">Shop</button></div><div class="shoplist">'+sw('snd','Sound')+sw('mus','Music')+sw('vib','Vibration')+
     '<div class="sitem"><div><b>Ads</b><span>'+(window.BobAds?'Your privacy choices for ads':OWN.consent==='p'?'Personalised ads allowed':OWN.consent==='n'?'Ads are not personalised':'Not chosen yet')+'</span></div><button class="tog" type="button" id="setAds">Change</button></div></div>'+
     '<div class="row"><button class="go quiet" id="setHow" type="button">How to play</button><button class="go quiet" id="setBk" type="button">Backup</button><button class="go quiet" id="setRes" type="button">Restore purchases</button></div>'+
-    '<div class="row"><a class="plink" href="'+PRIVACY+'" target="_blank" rel="noopener">Privacy policy</a><span class="fine" id="setMsg"></span></div>');
+    '<div class="row"><a class="plink" href="'+PRIVACY+'" target="_blank" rel="noopener">Privacy policy</a> <a class="plink" href="'+TERMS+'" target="_blank" rel="noopener">Terms</a><span class="fine" id="setMsg"></span></div>');
   $('setShop').onclick=()=>openShop(openSettings);
   if(!menu)$('setMenu').onclick=()=>{
     if(!wave){toMenu();return;}

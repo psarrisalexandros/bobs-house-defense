@@ -19,6 +19,8 @@ window.BOB_CONFIG = {
     /* while true, the ad network is told these are test requests, so tapping an ad can never count against the account */
     testing: true
   },
+  /* SHA-256 fingerprint of the Google Play review code (see native.js, review access). Android only. */
+  review: { android: '4009b28c9f2f52f72b5bf1444a30dac3304f4b1b4acc759d6fae30eee548055d' },
   /* game key -> product ID in App Store Connect and in the Play Console. The same IDs are used in both, and they must match exactly. */
   products: {
     x2: { id: 'speed_x2', consumable: false },
