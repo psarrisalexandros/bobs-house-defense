@@ -67,7 +67,7 @@ button:focus-visible{outline:3px solid var(--paper);outline-offset:2px}
 .tog.speed{font-size:16px;min-width:52px}
 .stage{position:relative;width:100%;aspect-ratio:16/9;max-width:100%;border-radius:14px;overflow:hidden;
   border:3px solid var(--desk-2);background:#23235e}
-canvas{display:block;width:100%;height:100%;cursor:pointer}
+canvas{display:block;width:100%;height:100%;cursor:pointer;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
 .toast{position:absolute;left:12px;right:12px;bottom:10px;margin-inline:auto;max-width:600px;background:var(--paper);color:var(--ink);
   border:3px solid var(--ink);border-radius:12px;box-shadow:4px 4px 0 var(--ink);padding:6px 14px;font-weight:700;text-align:center;
   font-size:14px;line-height:1.3;cursor:pointer}
@@ -470,7 +470,10 @@ const BAL={
   pct:.05,help:1,hexp:.5,arm:[1,1.5,2.3,3.7,6.2],   /* helpers and traps grow slower than the zombies; the Armoury line keeps them in the fight */
   /* three difficulty levels: tougher and harder-biting zombies, faster, and fewer coins */
   lv:[{nm:'Easy',hp:1,bite:1,coin:1,sp:1},{nm:'Normal',hp:1.2,bite:1.15,coin:.95,sp:1.02},{nm:'Hard',hp:1.4,bite:1.35,coin:.88,sp:1.05}],
-  beam:.6,swim:2.4,hip:3.5,aoe:4,fall:.55,ex:.4,kb:.2};
+  beam:.6,swim:2.4,hip:3.5,aoe:4,fall:.55,ex:.4,kb:.2,
+  /* the player lending a hand. Aiming by hand: extra headshot chance, a headshot is worth at least aimM, and a steadier barrel.
+     A boss's weak spot takes a share of its health; a tapped target is everyone's target for a few seconds; one airdrop at most per wave */
+  aimC:.12,aimM:2,aimJit:.5,weak:.04,weakOpen:3.5,weakGap:5.5,focus:5,crateP:.4,crateCoin:.25,rush:8,rushMul:1.5};
 const WALL=[['Flimsy fence',60,50],['Wooden fence',110,74],['Taller fence',180,104],['Reinforced fence',290,110],['Metal wall',460,120],['Brick wall',740,128],['Spiked brick wall',1180,128],['Concrete wall',1900,132],['Titanium wall',3000,136],['Force field',4800,140]];
 const FOUND=[0,50,120,220,360,560],FLOOR=[0,60,150,280,460,710];
 const FORT=[{hp:0,arm:0},{hp:20,arm:.05},{hp:40,arm:0},{hp:0,arm:.1},{hp:120,arm:.1},{hp:200,arm:.1},{hp:300,arm:.05},{hp:500,arm:.05}];
@@ -783,7 +786,7 @@ function save(){
 const G={state:'menu',speed:1,sim:false,time:0,zombies:[],bullets:[],parts:[],texts:[],bombs:[],throws:[],mines:[],dogs:[],zaps:[],clouds:[],coinsFx:[],shake:0,
   wave:M.wave||1,runCoins:0,coinFrac:0,kick:0,banner:0,toastT:0,tab:{L:'guns',R:'size'},
   ang:{bob:.15,tom:.1,mg:.1,sg:.1,rpg:.1,flak:-.8},dome:0,car:null,heli:null,missile:null,drones:[],lobs:[],rockets:[],bursts:[],bees:[],bought:{},bridge:0,hippoT:0,hippoA:0,nuke:0,stun:0,bass:0,scream:null,nbeam:null,ufo:null,mariaSwing:0,autoWait:0,unl:{},was:{},
-  cd:{air:0,mud:0,holy:0,beam:0},mud:0,holy:0,strike:null,beam:null,drops:[],fires:[],fence:0,dark:0,graves:[],mut:{},pad:0};
+  cd:{air:0,mud:0,holy:0,beam:0},mud:0,holy:0,strike:null,beam:null,drops:[],fires:[],fence:0,dark:0,graves:[],mut:{},pad:0,aim:null,focus:null,crate:null,crateT:-1,rush:0};
 function tl(id){return M.T[id]||0;}
 function D(){return BAL.lv[M.diff||0];}
 function power(){return tl('ross')>=2&&!(G.dark>0&&G.state==='wave');}   /* the Electrician can cut it */
@@ -828,7 +831,8 @@ function startWave(w,fresh){
     fireT:.5,molT:3,tomT:1,johnT:2,johnN:0,flakT:.5,mgT:0,sgT:.6,rpgT:1.2,flaskT:2,sprayT:5,gasT:7,zapT:1,droneT:.5,mortT:3,nadeT:2,archT:1,
     carT:5,heliT:9,siloT:12,autoT:2,bubble:null,johnK:Math.floor(Math.random()*4),
     mariaT:1,nikoT:1,fwT:6,djT:6,markT:2,ufoT:1,stun:0,bass:0,scream:null,nbeam:null,nuke:0,lobs:[],rockets:[],bees:[],ufo:tl('irene')>=8?{x:700}:null,car:null,heli:null,missile:null,kick:0,banner:1.8,
-    mud:0,holy:0,strike:null,beam:null,drops:[],fires:[],dark:0,graves:[]});
+    mud:0,holy:0,strike:null,beam:null,drops:[],fires:[],dark:0,graves:[],focus:null,crate:null,rush:0,
+    crateT:w>=2&&Math.random()<BAL.crateP?6+Math.random()*10:-1});   /* the airdrop: not every wave, and never more than one */
   G.hm=scaleOf(w).hp/(BAL.force?1:D().hp);          /* helpers do not get stronger just because the difficulty is higher */
   G.bought={};G.hippoT=0;
   G.dome=AD(8)?(200+20*w)*.2*G.hm:0;
@@ -848,7 +852,7 @@ function startWave(w,fresh){
   if(w>=80){const ns=Math.min(4,1+Math.floor((w-80)/BAL.spk));for(let i=0;i<ns;i++)put((i+1)/(ns+1)*.8,'sparky');}
   if(w>=85){put(.3,'necro');if(w>=BAL.nec2)put(.6,'necro');}
   G.mut={};for(const m of mutOf(w))G.mut[m.k]=true;
-  G.queue=q;G.spawnGap=Math.max(BAL.gap,BAL.dur/n);G.spawnT=1;
+  G.queue=q;G.nTot=n;G.spawnGap=Math.max(BAL.gap,BAL.dur/n);G.spawnT=1;
   M.wave=w;save();renderDesk();sfx(w%5===0?'boss':'wave');
 }
 /* how much tougher wave w is than wave 1 */
@@ -867,7 +871,7 @@ function spawn(type,at,yard,mul){
   G.zombies.push({type,t,fly:!!t.fly,x:at||W+30+Math.random()*40,y:t.rain?112:t.drops?150+Math.random()*40:t.fly?250+Math.random()*70:GROUND,
     stopX:t.rain?650:t.drops?650:t.fly?290+Math.random()*150:0,dropN:0,hp:t.hp*hm,max:t.hp*hm,dmg:t.dmg*dm*(t.boss&&!t.mini?Math.sqrt(bossW(w)*mul):1)*(1+BAL.bite2*Math.min(BAL.cap2,Math.max(0,w-BAL.t2))),sp:t.sp*D().sp*(.9+Math.random()*.2)*(1+BAL.fast*Math.min(BAL.cap2,Math.max(0,w-BAL.t2))),shield:(t.shield||0)*hm,shieldMax:(t.shield||0)*hm,
     r:t.r,h:t.h,cd:t.cd*Math.random(),anim:Math.random()*6,flash:0,atk:0,dead:false,v:0,inMoat:0,moated:false,hop:0,burn:0,burnDps:0,frozen:0,held:0,slow:0,gated:false,dog:false,
-    arm:w>=BAL.armW&&!t.boss&&!t.veh&&!t.dino&&t.hp<=35&&Math.random()<Math.min(BAL.armMax,.1+BAL.armStep*(w-BAL.armW)),cargoLeft:t.cargo||0,sT:2,scT:5,rT:3,rope:0,carry:!!t.carry,yard:!!yard,mark:false,hitOnce:false,parked:false,unT:0,kb:0,toss:0,cl:0,moatT:1.5,clm:Math.random()<.6&&!t.boss&&!t.veh&&!t.dino&&!t.fly&&!t.shield,bT:4,age:0,rise:0,cast:0});
+    arm:w>=BAL.armW&&!t.boss&&!t.veh&&!t.dino&&t.hp<=35&&Math.random()<Math.min(BAL.armMax,.1+BAL.armStep*(w-BAL.armW)),cargoLeft:t.cargo||0,sT:2,scT:5,rT:3,rope:0,carry:!!t.carry,yard:!!yard,mark:false,hitOnce:false,parked:false,unT:0,kb:0,toss:0,cl:0,moatT:1.5,clm:Math.random()<.6&&!t.boss&&!t.veh&&!t.dino&&!t.fly&&!t.shield,bT:4,age:0,rise:0,cast:0,wk:0,wkT:3+Math.random()*2,kd:0});
   const z=G.zombies[G.zombies.length-1];
   if(!t.boss&&!t.veh){const m=G.mut;if(m.armour&&!t.dino&&!t.fly)z.arm=true;if(m.fire)z.fp=true;if(m.fast)z.sp*=1.33;if(m.thick)z.thick=true;}
   return z;
@@ -930,6 +934,60 @@ function hit(z,d,crit){
       if(k>0)G.texts.push({x:z.x,y:z.y-z.h-20,s:'+'+k,c:'#f2c14e',t:.9});
     }
   }
+}
+/* ---------- the player lends a hand ---------- */
+/* a boss's weak spot: forehead, jaw or chest, on the side the bullets come from. Never lower, where the zombies in front would be in the way */
+function weakAt(z){return {x:z.x-z.r*.35,y:z.y-z.h*[.88,.72,.58][z.wk-1],r:Math.max(13,z.h*.15)};}
+/* only a shot the player aimed counts. It takes a share of the boss's health, half of its shield, and its balance */
+function weakHit(z){
+  z.wk=0;z.wkT=BAL.weakGap;
+  if(z.shield>0)z.shield=z.shield<z.shieldMax*.2?0:z.shield*.5;
+  if(!z.t.noHold)z.held=Math.max(z.held,.5);
+  G.shake=.15;
+  if(!G.sim){sfx('bonk');buzz(30);G.texts.push({x:z.x,y:z.y-z.h-30,s:'WEAK SPOT!',c:'#ffe27a',t:1});for(let i=0;i<10;i++)G.parts.push({x:z.x-z.r*.4,y:z.y-z.h*.5,vx:-40-Math.random()*220,vy:-Math.random()*240,t:.5,c:i%2?'#ffe27a':'#fff1d0',s:3+Math.random()*3});}
+  hit(z,z.max*BAL.weak);
+}
+/* a zombie on its way up the fence, tapped: it comes off backwards and lies there seeing stars */
+function knock(z){
+  z.cl+=1.9-z.cl%3.6;z.kd=1.7;
+  if(!G.sim){sfx('bonk');G.texts.push({x:z.x,y:z.y-z.h-44,s:'OFF YOU GO!',c:'#fff1d0',t:.8});}
+  hit(z,5*dmgMul());
+}
+/* a zombie in the moat, tapped: back under it goes, once */
+function dunk(z){
+  z.dunk=true;z.inMoat+=1.15;z.moatT+=1.15;splash(z.x,tl('moat')>=2);
+  if(!G.sim)G.texts.push({x:z.x,y:GROUND-26,s:tl('moat')>=2?'GLUG!':'DOWN!',c:'#9fd8ff',t:.8});
+  hit(z,5*dmgMul());
+}
+function crateTick(dt){
+  const c=G.crate;if(!c)return;
+  c.t+=dt;
+  if(c.y<GROUND-15)c.y=Math.min(GROUND-15,c.y+64*dt);else{c.land+=dt;if(c.land>6)G.crate=null;}
+}
+function openCrate(){
+  const c=G.crate;G.crate=null;sfx('buy');buzz(20);
+  for(let i=0;i<12;i++)G.parts.push({x:c.x,y:c.y-8,vx:(Math.random()-.5)*260,vy:-Math.random()*260,t:.6,c:i%3?'#b9824a':'#f2c14e',s:3+Math.random()*4});
+  if(Math.random()<.6){const k=addCoins(Math.max(4,Math.round((G.nTot||16)*BAL.crateCoin)));G.texts.push({x:c.x,y:c.y-30,s:'+'+k+' coins',c:'#f2c14e',t:1.4});}
+  else{G.rush=BAL.rush;G.texts.push({x:c.x,y:c.y-30,s:'RAPID FIRE!',c:'#ff8a3c',t:1.4});}
+}
+/* where a zombie is on screen right now, climbing and swimming included */
+function zbox(z){const an=z.t.dino||z.t.veh||z.fly?null:antics(z);return {x:z.x+(an?an.x:0),y:z.y+(an?an.y:0)-z.h*.5};}
+/* one tap on the scene: the airdrop first, then a zombie (knocked off the fence, dunked, or made everyone's target). False if nothing was there */
+function tapWave(x,y,R){
+  const c=G.crate;
+  if(c&&Math.hypot(c.x-x,c.y-12-y)<R+24){openCrate();return true;}
+  let best=null,bs=1e9;
+  for(const z of G.zombies){
+    if(z.dead||z.x>W+10)continue;
+    const b=zbox(z),d=Math.hypot(Math.max(0,Math.abs(x-b.x)-z.r),Math.max(0,Math.abs(y-b.y)-z.h*.5));
+    if(d>R)continue;
+    const sc=d*1000+Math.hypot(x-b.x,y-b.y);if(sc<bs){bs=sc;best=z;}
+  }
+  if(!best)return false;
+  if(best.cl>0&&best.clm&&best.kd<=0&&best.cl%3.6<1.9)knock(best);
+  else if(best.inMoat>0&&!best.dunk&&!best.t.boss&&best.moatT-best.inMoat>=.7)dunk(best);
+  else{G.focus={z:best,t:BAL.focus};sfx('tap');G.texts.push({x:best.x,y:best.y-best.h-(best.t.boss?40:26),s:'TARGET!',c:'#ffe27a',t:.7});}
+  return true;
 }
 /* continuous damage (fire, gas, wire, beams): hurts without the white hit flash */
 function sear(z,d){const f=z.flash;hit(z,d);z.flash=f;}
@@ -1012,6 +1070,9 @@ function update(dt){
   if(G.kick>0)G.kick-=dt;
   if(G.shake>0)G.shake-=dt;
   if(G.dark>0)G.dark-=dt;
+  if(G.rush>0)G.rush-=dt;
+  if(G.focus){G.focus.t-=dt;if(G.focus.t<=0||G.focus.z.dead)G.focus=null;}
+  if(G.crateT>0){G.crateT-=dt;if(G.crateT<=0&&!G.sim&&G.queue.length+G.zombies.length>2)G.crate={x:600+Math.random()*280,y:-50,t:0,land:0};}
   G.spawnT-=dt;
   if(G.queue.length&&G.spawnT<=0){const e=G.queue.shift();if(Array.isArray(e))spawn(e[0],0,false,e[1]);else spawn(e);G.spawnT=G.spawnGap*(.6+Math.random()*.8);}
   const wire=tl('wire'),flame=tl('flame'),spikes=spikeLv(),moat=tl('moat'),mw=moatW(),hold=moat>=2?BAL.swim:1.5;
@@ -1031,6 +1092,7 @@ function update(dt){
   }
   for(const z of G.zombies){
     if(z.dead)continue;
+    if(z.t.boss&&!z.t.elite&&z.x<W-30){z.wkT-=dt;if(z.wkT<=0){if(z.wk){z.wk=0;z.wkT=BAL.weakGap;}else{z.wk=1+Math.floor(Math.random()*3);z.wkT=BAL.weakOpen;}}}   /* a boss shows a weak spot now and then */
     if(z.shieldMax>0&&z.shield<=0&&!z.shOff){z.shOff=true;drop(z,'shield','#8fa3b8');}
     if(z.flash>0)z.flash-=dt;if(z.atk>0)z.atk-=dt;if(z.slow>0)z.slow-=dt;if(z.kb>0)z.kb-=dt;if(z.rise>0)z.rise-=dt;
     if(z.toss>0){z.toss-=dt;z.v=0;continue;}           /* in the air, courtesy of the hippo */
@@ -1042,6 +1104,7 @@ function update(dt){
     }
     if(z.frozen>0){z.frozen-=dt;z.v=0;if(holyWater)sear(z,z.max*BAL.pct*((z.t.boss||z.thick)?.015:.05)*dt);continue;}
     if(z.held>0){z.held-=dt;z.v=0;continue;}
+    if(z.kd>0){z.kd-=dt;z.cl+=dt;z.v=0;continue;}        /* knocked off the fence by a tap */
     z.anim+=dt;z.age+=dt;
     if(z.t.boss&&!z.t.mini)bossTick(z,dt);
     if(z.t.elite)eliteTick(z,dt);
@@ -1132,30 +1195,49 @@ function update(dt){
   const alive=G.zombies.filter(z=>!z.dead).sort((a,b)=>a.x-b.x);
   const seen=alive.filter(z=>z.x<W-10),grounded=seen.filter(z=>!z.fly);
   if(seen.length){
-    const near=seen[0],fl=seen.filter(z=>z.fly),shielded=seen.filter(z=>z.shield>0);
+    /* a zombie the player tapped is everyone's target for a few seconds */
+    const fz=G.focus&&seen.indexOf(G.focus.z)>=0?G.focus.z:null,fzg=fz&&!fz.fly?fz:null;
+    const head=z=>({x:z.x,y:z.y-z.h*.3,h:z.h,v:z.v});   /* guns aim at the head of a tapped target, to shoot over the ones standing in front of it */
+    const near=fz||seen[0],fl=seen.filter(z=>z.fly),shielded=seen.filter(z=>z.shield>0);
     /* everyone picks targets by what they are good at: the tightest pack, the weakest, the strongest, whatever flies */
     const packOf=list=>{let best=list[0],bn=-1;for(const a of list){let c=0;for(const b of list)if(Math.abs(a.x-b.x)<70)c++;if(c>bn){bn=c;best=a;}}return best;};
-    const gcrowd=grounded.length?packOf(grounded):null,crowd=gcrowd||near,weakest=seen.slice().sort((a,b)=>a.hp-b.hp)[0];
+    const gcrowd=fzg||(grounded.length?packOf(grounded):null),crowd=fz||gcrowd||near,weakest=fz||seen.slice().sort((a,b)=>a.hp-b.hp)[0];
     if(G.stun>0){G.stun-=dt;for(const k of ['tomT','flaskT','sprayT','gasT','zapT','droneT','mortT','nadeT','johnT','nikoT','fwT','djT','mariaT','markT','archT'])G[k]+=dt;}   /* the Bride's scream */
     if(G.dark>0)for(const k of ['mgT','sgT','rpgT','flakT','droneT','nadeT','siloT'])G[k]+=dt;   /* a power cut: nothing electric fires */
     // Bob: only shoots what his weapon can reach
     const g=gun(),aim=[0,0,3,5][tl('sight')],range=g.range*(1+.1*Math.min(3,aim)),reach=seen.filter(z=>z.x-PB.x<=range);
-    track('bob',PB,reach.length?reach[0]:near);
+    /* a finger held on the scene: Bob aims where it points and keeps firing. Lift it and he picks his own targets again */
+    const am=G.aim&&G.aim.on&&!G.sim?G.aim:null,bt=fz&&reach.indexOf(fz)>=0?fz:reach[0],rush=G.rush>0?BAL.rushMul:1;
+    let mt=null;
+    if(am){
+      let az=null,bd=16;
+      for(const z of seen){const d=Math.max(Math.abs(am.x-z.x)-z.r,Math.abs(am.y-(z.y-z.h*.5))-z.h*.5);if(d<bd){bd=d;az=z;}}
+      mt={x:Math.max(PB.x+50,am.x),y:am.y,h:0,v:az?az.v:0,spot:null};am.z=az;am.far=mt.x-PB.x>range;
+      if(az&&az.wk){const sp=weakAt(az);if(Math.abs(am.y-sp.y)<sp.r+12){mt.y=sp.y;mt.spot=az;}}   /* close enough to the weak spot: the barrel settles on it */
+    }
+    const bz=mt||(bt&&bt===fz&&!fz.fly?head(fz):bt);
+    track('bob',PB,bz||near);
     if(g.beam){   /* the nuclear rifle: one continuous beam through the first three zombies in line */
-      if(reach.length){
-        const dps=g.dmg*bobMul()*fireRate()*(1+critC()*(critM()-1))*BAL.beam;   /* the beam cannot miss a head: headshots are averaged in */
-        for(let i=0;i<Math.min(3+PIERCE(),reach.length);i++){const z=reach[i],d=dps*(i?.5:1)*dt;sear(z,z.shield>0?d*2:d);if(z.shield>0)z.shield-=d;if(INC())ignite(z,4*INC()*dmgMul(),3);}
-        G.nbeam={x:reach[0].x,y:reach[0].y-reach[0].h*.55};
+      let list=reach;
+      if(mt){
+        const a=Math.atan2(mt.y-PB.y,mt.x-PB.x),ca=Math.cos(a),sa=Math.sin(a);
+        list=seen.filter(z=>{const dx=z.x-PB.x,dy=z.y-z.h*.5-PB.y;return dx*ca+dy*sa>0&&dx<=range&&Math.abs(dy*ca-dx*sa)<z.h*.5+8;});
+      }else if(bt&&bt!==reach[0])list=[bt].concat(reach.filter(z=>z!==bt));
+      if(list.length){
+        const dps=g.dmg*bobMul()*fireRate()*rush*(1+(critC()+(mt?BAL.aimC:0))*((mt?Math.max(critM(),BAL.aimM):critM())-1))*BAL.beam;   /* the beam cannot miss a head: headshots are averaged in */
+        for(let i=0;i<Math.min(3+PIERCE(),list.length);i++){const z=list[i],d=dps*(i?.5:1)*dt;sear(z,z.shield>0?d*2:d);if(z.shield>0)z.shield-=d;if(INC())ignite(z,4*INC()*dmgMul(),3);}
+        if(mt&&mt.spot&&!mt.spot.dead&&list.indexOf(mt.spot)>=0&&list.indexOf(mt.spot)<3+PIERCE())weakHit(mt.spot);
+        G.nbeam={x:list[0].x,y:mt?PB.y+(list[0].x-PB.x)*Math.tan(G.ang.bob):list[0].y-list[0].h*.55};
       }else G.nbeam={x:-99,y:-99};                         /* the beam never switches off */
     }else{
       G.fireT-=dt;
-      if(G.fireT<=0&&reach.length){
-        G.fireT=1/(g.rate*fireRate());
-        const n=g.n||1,cc=critC(),err=g.jit*Math.pow(.8,aim);
+      if(G.fireT<=0&&(mt||reach.length)){
+        G.fireT=1/(g.rate*fireRate()*rush);
+        const n=g.n||1,cc=critC()+(mt?BAL.aimC:0),cm=mt?Math.max(critM(),BAL.aimM):critM(),err=g.jit*Math.pow(.8,aim)*(mt?BAL.aimJit:1);
         for(let i=0;i<n;i++){
           const crit=Math.random()<cc;                         /* a headshot does three to four times the damage */
-          const b=shoot(PB,g.len,reach[0],g.dmg*bobMul()*(crit?critM():1),(n>1?(i-(n-1)/2)*g.spread:0)+(Math.random()-.5)*2*err,g.k,(g.pierce||0)+PIERCE(),g.sp*(1+.08*aim));
-          b.crit=crit;b.range=range+60;b.x0=b.x;b.bob=true;
+          const b=shoot(PB,g.len,bz,g.dmg*bobMul()*(crit?cm:1),(n>1?(i-(n-1)/2)*g.spread:0)+(Math.random()-.5)*2*err,g.k,(g.pierce||0)+PIERCE(),g.sp*(1+.08*aim));
+          b.crit=crit;b.cm=cm;b.range=range+60;b.x0=b.x;b.bob=true;b.man=!!mt;
         }
         G.kick=.08;sfx(g.k);
       }
@@ -1180,26 +1262,26 @@ function update(dt){
       }
     }
     for(let i=0;i<G.bees.length;i++){
-      const bz=G.bees[i],tg=fl.length?fl[i%fl.length]:(i&&seen.length>1?seen[seen.length-1]:crowd),tx=tg.x,ty=tg.y-tg.h*.5,dd=Math.hypot(tx-bz.x,ty-bz.y)||1;
+      const bz=G.bees[i],tg=fz||(fl.length?fl[i%fl.length]:(i&&seen.length>1?seen[seen.length-1]:crowd)),tx=tg.x,ty=tg.y-tg.h*.5,dd=Math.hypot(tx-bz.x,ty-bz.y)||1;
       bz.x+=(tx-bz.x)/dd*Math.min(dd,190*dt);bz.y+=(ty-bz.y)/dd*Math.min(dd,190*dt);
       for(const z of alive)if(Math.hypot(z.x-bz.x,z.y-z.h*.5-bz.y)<46+z.r)sear(z,14*dmgMul()*dt);
     }
     if(tl('yannis')){G.markT-=dt;if(G.markT<=0){G.markT=6;const un=seen.filter(z=>!z.mark).sort((a,b)=>b.hp-a.hp);for(let i=0;i<Math.min(tl('yannis'),un.length);i++)un[i].mark=true;}}
     if(G.ufo){   /* the alien alliance */
       G.ufo.x=700+Math.sin(G.time*.5)*170;G.ufoT-=dt;
-      if(G.ufoT<=0){G.ufoT=.55;const tg=seen[Math.floor(Math.random()*seen.length)];hit(tg,48*dmgMul());G.zaps.push({pts:[G.ufo.x+(Math.random()-.5)*40,104,tg.x,tg.y-tg.h*.5],t:.16,c:'#8fd14f'});}
+      if(G.ufoT<=0){G.ufoT=.55;const tg=fz||seen[Math.floor(Math.random()*seen.length)];hit(tg,48*dmgMul());G.zaps.push({pts:[G.ufo.x+(Math.random()-.5)*40,104,tg.x,tg.y-tg.h*.5],t:.16,c:'#8fd14f'});}
     }
     // Tom the sniper: one careful shot at flyers, shields, then the toughest
     if(tl('tom')){
-      const tg=tomGun(),tough=fl.length?fl[0]:(tg.breaker&&shielded.length)?shielded[0]:seen.slice().sort((a,b)=>b.hp-a.hp)[0];
-      const tp=pp('tom',16,0);track('tom',tp,tough);G.tomT-=dt;
-      if(G.tomT<=0){G.tomT=tg.cd;const b=shoot(tp,tg.len,tough,tg.dmg*dmgMul(),0,'sniper',tg.p,tg.sp);b.breaker=tg.breaker;}
+      const tg=tomGun(),tough=fz||(fl.length?fl[0]:(tg.breaker&&shielded.length)?shielded[0]:seen.slice().sort((a,b)=>b.hp-a.hp)[0]);
+      const tp=pp('tom',16,0),tz=tough===fz&&!fz.fly?head(fz):tough;track('tom',tp,tz);G.tomT-=dt;
+      if(G.tomT<=0){G.tomT=tg.cd;const b=shoot(tp,tg.len,tz,tg.dmg*dmgMul(),0,'sniper',tg.p,tg.sp);b.breaker=tg.breaker;}
     }
     // Sofia: flasks from the third floor
     const sl=tl('sofia');
     if(sl>=1&&grounded.length){
       const gs=grounded.filter(z=>z.shield>0);
-      const sp0=pp('sofia',38,-2);G.flaskT-=dt;if(G.flaskT<=0){G.flaskT=4;lob(sp0,(gs.length?gs[0]:gcrowd).x,.8,10);}
+      const sp0=pp('sofia',38,-2);G.flaskT-=dt;if(G.flaskT<=0){G.flaskT=4;lob(sp0,(fzg||(gs.length?gs[0]:gcrowd)).x,.8,10);}
       if(sl>=2){G.sprayT-=dt;if(G.sprayT<=0){G.sprayT=9;lob(sp0,gcrowd.x+30,.8,11);}}
       if(sl>=3){G.gasT-=dt;if(G.gasT<=0){G.gasT=12;lob(sp0,gcrowd.x+60,.9,12);}}
     }
@@ -1207,7 +1289,7 @@ function update(dt){
     if(tl('tania')>=1&&power()){
       G.zapT-=dt;const cp=coilP(),inr=seen.filter(z=>z.x-cp.x<640);
       if(G.zapT<=0&&inr.length){
-        G.zapT=1.3;let cur=packOf(inr),d=24*dmgMul();const pts=[cp.x,cp.y,cur.x,cur.y-cur.h*.6],done=[cur];hit(cur,d);
+        G.zapT=1.3;let cur=fz&&inr.indexOf(fz)>=0?fz:packOf(inr),d=24*dmgMul();const pts=[cp.x,cp.y,cur.x,cur.y-cur.h*.6],done=[cur];hit(cur,d);
         if(tl('tania')>=2)for(let j=0;j<3;j++){
           const nx=alive.filter(z=>!z.dead&&done.indexOf(z)<0&&Math.hypot(z.x-cur.x,z.y-cur.y)<120)[0];if(!nx)break;
           d*=.7;hit(nx,d);pts.push(nx.x,nx.y-nx.h*.6);done.push(nx);cur=nx;
@@ -1217,7 +1299,7 @@ function update(dt){
     }
     // Paul: drones and mortar
     for(const dr of G.drones){
-      const tgt=dr.k==='gun'?(fl.length?fl[0]:near):(gcrowd||near);
+      const tgt=dr.k==='gun'?(fz||(fl.length?fl[0]:near)):(gcrowd||near);
       dr.x+=((dr.k==='gun'?tgt.x-70:tgt.x)-dr.x)*dt*1.5;dr.x=Math.max(FENCE_X+30,dr.x);dr.y+=((dr.k==='gun'?Math.min(200,tgt.y-90):110)-dr.y)*dt*2;
       if(dr.k==='gun'){G.droneT-=dt;if(G.droneT<=0){G.droneT=.7;shoot(dr,10,tgt,10*dmgMul(),0,'turret',0,620);}}
       else{G.nadeT-=dt;if(G.nadeT<=0&&gcrowd&&Math.abs(dr.x-gcrowd.x)<40){G.nadeT=3;G.drops.push({x:dr.x,y:dr.y+8,vy:40,g:true});}}
@@ -1229,7 +1311,7 @@ function update(dt){
       if(G.johnT<=0){G.johnT=tl('john')>=2?2.4:3.4;lob(pp('john',38,-2),gcrowd.x-gcrowd.v*.9,1.0,johnNext());G.johnN++;G.johnK=Math.floor(Math.random()*4);}
     }
     if(tl('fort')>=5){   /* flak gun: whatever flies comes first; its shells burst and hurt everything nearby */
-      const ft=fl.length?fl[0]:near,p=flakP();track('flak',p,ft);G.flakT-=dt;
+      const ft=fz||(fl.length?fl[0]:near),p=flakP();track('flak',p,ft);G.flakT-=dt;
       if(G.flakT<=0){G.flakT=fl.length?.9:2;shoot(p,30,ft,34*dmgMul(),0,'flak',0,620);}
     }
     if(AD(5)){G.archT-=dt;if(G.archT<=0){G.archT=1.4;shoot({x:19,y:towerTop()-22},10,near,14*dmgMul(),0,'arrow',0,520);shoot({x:19,y:towerTop()+36},10,seen[Math.min(1,seen.length-1)],14*dmgMul(),0,'arrow',0,520);}}
@@ -1338,6 +1420,7 @@ function update(dt){
         if(z.dead||b.seen.indexOf(z)>=0)continue;
         if(Math.abs(b.x-z.x)<z.r+5&&b.y>z.y-z.h-4&&b.y<z.y+6){
           if(b.k==='rocket'||b.k==='flak'){explode(b.x,b.y,b.k==='flak'?40:62,b.d,alive,0,false,b.k==='flak'?4:6);b.gone=true;break;}
+          if(b.man&&z.wk){const sp=weakAt(z);if(Math.abs(b.y-sp.y)<sp.r+4){weakHit(z);if(z.dead){b.gone=true;break;}}}
           /* shields stop ordinary bullets. Tom's big rifle and the laser gun go through; fire, acid, blasts and spikes go around */
           if(z.shield>0&&!b.breaker&&b.k!=='laser'){
             z.shield-=b.d;z.flash=.04;b.gone=true;
@@ -1346,7 +1429,7 @@ function update(dt){
           }
           if(b.breaker)z.shield=0;
           /* no headshots on vehicles; armoured zombies shrug off half of every bullet */
-          const veh=!!z.t.veh,bd=(veh&&b.crit?b.d/critM():b.d)*(z.arm?.5:1);
+          const veh=!!z.t.veh,bd=(veh&&b.crit?b.d/(b.cm||critM()):b.d)*(z.arm?.5:1);
           hit(z,bd,b.crit&&!veh);b.seen.push(z);
           /* blowback: the harder the shot is for this zombie, the further it staggers */
           if(!z.dead&&z.inMoat<=0&&z.held<=0&&z.frozen<=0&&!z.parked){
@@ -1372,7 +1455,7 @@ function waveCleared(){
   /* nothing resets between waves. Bob patches a little; Ross repairs a share that grows with his level, fence and house alike */
   const fix=repairShare();
   G.fence=Math.min(fenceMax(),G.fence+fix*fenceMax());G.house=Math.min(houseMax(),G.house+fix*houseMax());
-  Object.assign(G,{bullets:[],bombs:[],drops:[],fires:[],throws:[],clouds:[],zaps:[],lobs:[],rockets:[],strike:null,beam:null,car:null,heli:null,missile:null,nbeam:null,mud:0,holy:0,stun:0});
+  Object.assign(G,{bullets:[],bombs:[],drops:[],fires:[],throws:[],clouds:[],zaps:[],lobs:[],rockets:[],strike:null,beam:null,car:null,heli:null,missile:null,nbeam:null,mud:0,holy:0,stun:0,focus:null,crate:null,rush:0});
   if(G.wave>M.best)M.best=G.wave;M.fn=0;
   if(G.wave%5===0&&!G.sim)note('~'+boast(G.wave));
   if(!G.sim&&(G.wave===10||G.wave===20)&&!OWN.rated&&SLOT==='main')askRate(G.wave);   /* instead of the ad break */
@@ -1619,12 +1702,15 @@ function askConsent(then){
     '<div class="row"><button class="go" id="coP" type="button">Personalised ads</button><button class="go" id="coN" type="button">Not personalised</button></div><a class="plink" href="'+PRIVACY+'" target="_blank" rel="noopener">Privacy policy</a>');
   const set=v=>()=>{OWN.consent=v;saveOwn();closeModal();if(then)then();};$('coP').onclick=set('p');$('coN').onclick=set('n');
 }
+/* the same words tell new players and returning ones what a finger can do */
+const HAND='Hold a finger on the road and Bob aims where you point, with a better chance of a headshot. Tap a zombie and everyone targets it for a few seconds. Tap one that is climbing the fence or the moat and down it goes. A boss shows a glowing weak spot now and then: aim Bob at it. And if a crate comes down on a parachute, tap it before it is gone.';
 const TUT=[['Bob defends his house','Zombies come down the road in waves. Bob shoots by himself: you never have to aim.'],
+  ['Or lend a hand',HAND],
   ['You do the shopping','Between waves, spend your coins on upgrades. Every upgrade changes something you can see. A red dot marks what you can afford.'],
   ['Skills','Later you unlock skills such as sprinklers and an airstrike. Tap one during a wave to use it. It then needs time to recharge.'],
   ['If the house falls','You keep your coins and upgrades, and you try the same wave again. Press Start when you are ready.']];
 function tutorial(i){
-  i=i||0;const last=i===TUT.length-1,end=()=>{OWN.tut=1;saveOwn();closeModal();};
+  i=i||0;const last=i===TUT.length-1,end=()=>{OWN.tut=1;OWN.hand=1;saveOwn();closeModal();};
   openModal('<h2>'+TUT[i][0]+'</h2><p>'+TUT[i][1]+'</p><div class="row"><button class="go" id="tuN" type="button">'+(last?'Play':'Next')+'</button>'+(last?'':'<button class="go quiet" id="tuS" type="button">Skip</button>')+'<span class="fine">'+(i+1)+' of '+TUT.length+'</span></div>');
   $('tuN').onclick=()=>last?end():tutorial(i+1);if(!last)$('tuS').onclick=end;
 }
@@ -1653,7 +1739,7 @@ function openSettings(){
 function toMenu(){
   closeModal();if(G.state==='over')patchUp();
   Object.assign(G,{state:'menu',zombies:[],queue:[],bullets:[],bombs:[],throws:[],lobs:[],drops:[],fires:[],clouds:[],zaps:[],rockets:[],dogs:[],drones:[],bees:[],mines:[],
-    car:null,heli:null,missile:null,strike:null,beam:null,nbeam:null,ufo:null,scream:null,dark:0,stun:0,mud:0,holy:0,autoWait:0,briefing:false,askNew:false});
+    car:null,heli:null,missile:null,strike:null,beam:null,nbeam:null,ufo:null,scream:null,dark:0,stun:0,mud:0,holy:0,autoWait:0,briefing:false,askNew:false,focus:null,crate:null,rush:0,aim:null});
   brief.hidden=true;save();renderDesk();renderSides();showPanel();
 }
 /* asked after the bosses of waves 10 and 20, at most twice. The store version sets window.BobRate to open the store's own rating sheet */
@@ -1770,13 +1856,38 @@ function cast(){
   dogs.forEach(d=>c.push({id:'dog'+d.breed,x:d.st==='home'?KENNEL:d.x,y:GROUND-12,r:d.st==='home'?20:24,dog:true}));
   return c;
 }
-cv.addEventListener('click',e=>{
-  const r=cv.getBoundingClientRect(),x=(e.clientX-r.left)/r.height*H-G.pad,y=(e.clientY-r.top)/r.height*H;
+/* the scene under a finger or the mouse, in game units; k is game units per screen pixel */
+function scenePt(e){const r=cv.getBoundingClientRect(),k=H/r.height;return {x:Math.max(-G.pad,Math.min(W,(e.clientX-r.left)*k-G.pad)),y:Math.max(0,Math.min(H,(e.clientY-r.top)*k)),k};}
+function quip(x,y){
   const hitc=cast().filter(c=>Math.hypot(c.x-x,c.y-y)<c.r).sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y))[0];
   if(!hitc)return;
   const q=QUIPS[hitc.id];G.qi=G.qi||{};const qn=G.qi[hitc.id]=((G.qi[hitc.id]==null?Math.floor(Math.random()*q.length):G.qi[hitc.id]+1)%q.length);G.bubble={x:hitc.x,y:hitc.y-hitc.r-6,s:q[qn],t:2.8,id:hitc.id};
   if(hitc.dog)for(let i=0;i<3;i++)G.texts.push({x:hitc.x-12+i*12,y:hitc.y-20-i*6,s:'\u2665',c:'#ff5d73',t:.8+i*.2});
+}
+/* a finger held on the scene aims Bob; a quick tap acts on what is under it. The crosshair sits above a finger so the finger does not hide the target; a mouse needs no such help.
+   The first finger down is the one that aims; any other finger can still tap */
+const PTRS=new Map();
+function aimAt(e,P){const p=scenePt(e);if(!G.aim)G.aim={id:P.id,up:P.touch?46*p.k:0,on:false,t0:P.t0,x:0,y:0};if(G.aim.id!==P.id)return;G.aim.x=p.x;G.aim.y=Math.max(0,p.y-G.aim.up);if(P.moved)G.aim.on=true;}
+cv.addEventListener('pointerdown',e=>{
+  if(e.pointerType==='mouse'&&e.button!==0)return;
+  const P={id:e.pointerId,x0:e.clientX,y0:e.clientY,t0:performance.now(),moved:false,touch:e.pointerType!=='mouse'};PTRS.set(e.pointerId,P);
+  try{cv.setPointerCapture(e.pointerId);}catch(err){}
+  if(G.state==='wave')aimAt(e,P);
 });
+cv.addEventListener('pointermove',e=>{
+  const P=PTRS.get(e.pointerId);if(!P)return;
+  if(Math.hypot(e.clientX-P.x0,e.clientY-P.y0)>10)P.moved=true;
+  if(G.state==='wave')aimAt(e,P);
+});
+function lift(e,tap){
+  const P=PTRS.get(e.pointerId);if(!P)return;PTRS.delete(e.pointerId);
+  if(G.aim&&G.aim.id===P.id)G.aim=null;
+  if(!tap||P.moved||performance.now()-P.t0>350)return;
+  const p=scenePt(e);
+  if(!(G.state==='wave'&&!G.modal&&tapWave(p.x,p.y,Math.max(14,24*p.k))))quip(p.x,p.y);
+}
+cv.addEventListener('pointerup',e=>lift(e,true));cv.addEventListener('pointercancel',e=>lift(e,false));
+cv.addEventListener('contextmenu',e=>e.preventDefault());
 $('skills').addEventListener('click',e=>{const b=e.target.closest('[data-skill]');if(!b||b.disabled)return;const k=b.dataset.skill;
   if(G.cd[k]>0&&SK[k].has()&&G.rech!==G.wave&&G.state==='wave')showAd('Reward: this skill is ready at once',()=>{G.rech=G.wave;G.cd[k]=0;});else useSkill(k);});
 toast.addEventListener('click',()=>{toast.hidden=true;G.toastT=0;});
@@ -1805,6 +1916,7 @@ function updateHud(){
   if(hud.bank!==M.bank){hud.bank=M.bank;refreshSides();}
   if((G.scanN=(G.scanN||0)+1)%30===1)scanUnlocks();
   if(PHONE){const k=G.state;if(hud.pk!==k){hud.pk=k;showPanel();refreshSides();}}
+  const ta=G.state==='wave'?'none':'';if(hud.ta!==ta){hud.ta=ta;cv.style.touchAction=ta;}
 }
 
 /* ---------- drawing ---------- */
@@ -2447,6 +2559,13 @@ function drawZombie(z){
   if(z.burn>0){const ht=Math.max(1,Math.min(4,z.burnDps/(4*dmgMul())));for(let i=0;i<3;i++)flame(z.x+(i-1)*z.r*.55,z.y-z.h*.45,z.h*(.42+.07*ht),z.r*(.36+.03*ht),i*2.3+z.x,1,ht);}
   if(z.mark){ctx.strokeStyle='#ff5d73';ctx.lineWidth=2.5;const my=z.y-z.h-(z.fly?26:22);ctx.beginPath();ctx.arc(z.x,my,7,0,7);ctx.moveTo(z.x-11,my);ctx.lineTo(z.x+11,my);ctx.moveTo(z.x,my-11);ctx.lineTo(z.x,my+11);ctx.stroke();}
   if(z.frozen>0){ctx.strokeStyle='#ffe27a';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(z.x,z.y-z.h-(z.fly?14:8),z.r*.9,4,0,0,7);ctx.stroke();}
+  if(z.wk){   /* the weak spot: a pulsing target that runs out like a clock */
+    const sp=weakAt(z),pu=reduceMotion?0:Math.sin(G.time*11)*2.5,left=Math.max(0,Math.min(1,z.wkT/BAL.weakOpen));
+    glow(sp.x,sp.y,sp.r+9+pu,'#ffe27a',.3);
+    ctx.lineWidth=5.5;ctx.strokeStyle=OUT;ctx.beginPath();ctx.arc(sp.x,sp.y,sp.r+pu*.4,0,7);ctx.stroke();
+    ctx.lineWidth=3;ctx.strokeStyle='#ffe27a';ctx.beginPath();ctx.arc(sp.x,sp.y,sp.r+pu*.4,-Math.PI/2,-Math.PI/2+left*Math.PI*2);ctx.stroke();
+    disc(sp.x,sp.y,4.5,'#ff5d73',2);
+  }
   if(z.hp<z.max){
     const w=Math.max(26,z.r*2),y=z.y-z.h-(z.t.boss?26:z.fly?20:12);
     ctx.fillStyle=OUT;ctx.fillRect(z.x-w/2-1.5,y-1.5,w+3,8);
@@ -2853,6 +2972,50 @@ function drawFx2(){
   }
 }
 /* the warning card before a wave that brings something new */
+/* what the player's own hand adds to the scene: the tapped target, the airdrop, the rapid-fire note and the crosshair */
+function drawHand(){
+  if(G.state!=='wave')return;
+  const f=G.focus;
+  if(f&&!f.z.dead){
+    const z=f.z,b=zbox(z),w=z.r+9,h=z.h*.5+9,c=7,k=Math.max(0,f.t/BAL.focus);
+    ctx.lineCap='round';
+    for(const pass of [[OUT,6],['#ffe27a',3]]){
+      ctx.strokeStyle=pass[0];ctx.lineWidth=pass[1];ctx.beginPath();
+      for(const sx of [-1,1])for(const sy of [-1,1]){ctx.moveTo(b.x+sx*w,b.y+sy*(h-c));ctx.lineTo(b.x+sx*w,b.y+sy*h);ctx.lineTo(b.x+sx*(w-c),b.y+sy*h);}
+      ctx.stroke();
+    }
+    ctx.fillStyle=OUT;ctx.fillRect(b.x-w-1.5,b.y+h+5.5,w*2+3,6);ctx.fillStyle='#ffe27a';ctx.fillRect(b.x-w,b.y+h+7,w*2*k,3);
+  }
+  const c=G.crate;
+  if(c&&!(c.land>4&&Math.floor(c.land*6)%2)){          /* it blinks before it is gone */
+    const air=c.y<GROUND-15,sw=air&&!reduceMotion?Math.sin(c.t*2.2)*.12:0,pu=reduceMotion?0:Math.sin(G.time*6)*3;
+    ctx.save();ctx.translate(c.x,c.y);
+    glow(0,-12,30+pu,'#ffe27a',.22);
+    ctx.rotate(sw);ctx.lineCap='round';
+    if(air){
+      ctx.strokeStyle=OUT;ctx.lineWidth=2;ctx.beginPath();for(const lx of [-30,-10,10,30]){ctx.moveTo(lx,-62);ctx.lineTo(lx*.3,-24);}ctx.stroke();
+      ctx.beginPath();ctx.moveTo(-32,-62);ctx.quadraticCurveTo(-30,-104,0,-104);ctx.quadraticCurveTo(30,-104,32,-62);ctx.quadraticCurveTo(21,-70,11,-62);ctx.quadraticCurveTo(0,-70,-11,-62);ctx.quadraticCurveTo(-21,-70,-32,-62);ctx.closePath();fs('#ff5d73',3);
+      ctx.fillStyle='#fff1d0';ctx.beginPath();ctx.moveTo(-11,-63);ctx.quadraticCurveTo(-12,-98,0,-102);ctx.quadraticCurveTo(12,-98,11,-63);ctx.quadraticCurveTo(0,-70,-11,-63);ctx.fill();
+    }
+    rr(-17,-24,34,26,4);fs('#b9824a',3);
+    ctx.strokeStyle=OUT;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-17,-11);ctx.lineTo(17,-11);ctx.moveTo(-6,-24);ctx.lineTo(-6,2);ctx.moveTo(6,-24);ctx.lineTo(6,2);ctx.stroke();
+    disc(0,-11,7,'#f2c14e',2.5);
+    ctx.restore();
+    if(!air){ctx.font='900 13px "M PLUS Rounded 1c",sans-serif';ctx.textAlign='center';ctx.lineWidth=4;ctx.strokeStyle=OUT;ctx.strokeText('TAP!',c.x,c.y-34-pu*.5);ctx.fillStyle='#ffe27a';ctx.fillText('TAP!',c.x,c.y-34-pu*.5);}
+  }
+  if(G.rush>0){ctx.font='900 14px "M PLUS Rounded 1c",sans-serif';ctx.textAlign='center';ctx.lineWidth=4;ctx.strokeStyle=OUT;const rs='RAPID FIRE '+Math.ceil(G.rush)+'s';ctx.strokeText(rs,PB.x+6,PB.y-52);ctx.fillStyle='#ff8a3c';ctx.fillText(rs,PB.x+6,PB.y-52);}
+  const a=G.aim;
+  if(a&&a.on){
+    const col=a.far?'#b9add9':a.z?'#ff5d73':'#fff1d0',r=13;
+    ctx.lineCap='round';
+    for(const pass of [[OUT,5.5],[col,2.5]]){
+      ctx.strokeStyle=pass[0];ctx.lineWidth=pass[1];ctx.beginPath();ctx.arc(a.x,a.y,r,0,7);
+      for(const d of [[1,0],[-1,0],[0,1],[0,-1]]){ctx.moveTo(a.x+d[0]*(r-5),a.y+d[1]*(r-5));ctx.lineTo(a.x+d[0]*(r+7),a.y+d[1]*(r+7));}
+      ctx.stroke();
+    }
+    ctx.fillStyle=col;ctx.beginPath();ctx.arc(a.x,a.y,2.2,0,7);ctx.fill();
+  }
+}
 function newTypes(w){const a=MIX.filter(m=>m[1]===w).map(m=>m[0]);if(w===80)a.push('sparky');if(w===85)a.push('necro');if(w%10===0)a.push(BOSSW[(w/10-1)%10]);else if(w===5)a.push('boss');return a;}
 const PORTRAIT={};
 function portrait(type){
@@ -2919,6 +3082,7 @@ function draw(dt){
   for(const z of zs.slice().sort((a,b)=>b.r-a.r))drawZombie(z);
   moatFront(dt);
   drawFx(dt);
+  drawHand();
   ctx.lineCap='round';
   for(const b of G.bullets)drawBullet(b);
   for(const b of G.bombs){
@@ -2968,6 +3132,8 @@ function frame(ts){
   let n=0;
   if(!G.modal){acc+=dt*G.speed;while(acc>=STEP&&n++<12){update(STEP);acc-=STEP;}}
   if(n>=12)acc=0;
+  if(G.aim&&!G.aim.on&&performance.now()-G.aim.t0>140)G.aim.on=true;       /* a quick tap is not an aim */
+  if(G.state==='wave'&&!G.modal)crateTick(dt);else if(G.state!=='wave')G.aim=null;
   if(G.speed>1&&!speedOK(G.speed))setSpeed(1);          /* the 15 minutes of x2 ran out */
   if(G.state!=='wave')G.time+=dt;
   if(G.toastT>0){G.toastT-=dt;if(G.toastT<=0)toast.hidden=true;}
@@ -3043,6 +3209,10 @@ cloudGet(SKEY,adopt);cloudGet(KEY+'-own',adoptOwn);
 window.BobGame={owned(keys){let ch=false;for(const k of keys)if(!OWN[k]){OWN[k]=true;ch=true;}if(ch){saveOwn();syncToggles();}}};
 if(window.BobStore&&window.BobStore.start)window.BobStore.start();
 if(!OWN.tut&&SLOT==='main'&&M.wave===1&&!Object.keys(M.T).length)tutorial(0);   /* first run only */
+else if(!OWN.hand){   /* players who were here before the update are told once what is new */
+  openModal('<h2>New: lend Bob a hand</h2><p>'+HAND+'</p><p>None of it is needed. Bob still manages on his own.</p><div class="row"><button class="go" id="hdOk" type="button">Got it</button></div>');
+  $('hdOk').onclick=()=>{OWN.hand=1;saveOwn();closeModal();};
+}
 
 })();
 </script>
