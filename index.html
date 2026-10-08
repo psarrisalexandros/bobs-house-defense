@@ -1938,11 +1938,14 @@ function drawBack(){
   g.addColorStop(0,'#23235e');g.addColorStop(.55,'#6a3f8e');g.addColorStop(1,'#ff9566');
   const P=G.pad;ctx.fillStyle=g;ctx.fillRect(-P,0,W+P,GROUND);
   ctx.fillStyle='#fff1d0';
-  for(const s of STARS){
+  const stars=()=>{for(const s of STARS){
     ctx.globalAlpha=s.a*(.55+.45*Math.sin(G.time*s.sp+s.ph))*(1-s.y/360);
     ctx.beginPath();ctx.arc(s.x,s.y,s.s,0,7);ctx.fill();
     if(s.s>2.1){ctx.fillRect(s.x-s.s*2.6,s.y-.5,s.s*5.2,1);ctx.fillRect(s.x-.5,s.y-s.s*2.6,1,s.s*5.2);}
-  }
+  }};
+  stars();
+  /* the widened strip on the left of a long phone gets the same starry sky */
+  if(P>1){ctx.save();ctx.beginPath();ctx.rect(-P,0,P,GROUND);ctx.clip();ctx.translate(-W,0);stars();ctx.restore();}
   ctx.globalAlpha=1;
   ctx.fillStyle='#ffd88a';ctx.beginPath();ctx.arc(720,400,70,0,7);ctx.fill();
   ctx.fillStyle='#4a2f6e';ctx.beginPath();ctx.moveTo(0,GROUND);ctx.quadraticCurveTo(250,330,520,GROUND-30);ctx.quadraticCurveTo(780,340,W,GROUND-70);ctx.lineTo(W,GROUND);ctx.fill();
@@ -3182,7 +3185,7 @@ function layout(){
     renderSides();
   }
   if(ph){
-    const I=insets(),bar=land?42:0,use=vw-I.l-I.r,sw0=land?Math.min(use-104,(vh-bar)*16/9):vw,sw=sw0+(land?I.l:0);
+    const I=insets(),bar=land?42:0,use=vw-I.l-I.r,sw0=land?Math.min(use-104,(vh-bar)*16/9):vw,/* on long phones the scene stays 16:9 tall but widens up to the skill buttons (130px + margins): the extra width on the left is sky and grass, so no empty band is left between the scene and the buttons */sw=land?Math.max(sw0,use-140)+I.l:sw0;
     app.classList.toggle('land',land);app.classList.toggle('port',!land);
     const set=(k,v)=>app.style.setProperty(k,v+'px');
     set('--sw',sw);set('--sh',sw0*9/16);set('--bar',bar);set('--pl',Math.max(sw*.5,vw-420-I.r));
