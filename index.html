@@ -303,6 +303,8 @@ html.phone .hud{gap:4px 8px}
 .app.land .hud{width:var(--hw);padding-left:calc(8px + var(--il,0px))}
 .app.land .bars{left:var(--hw);width:calc(100% - var(--hw) - 118px - var(--ir,0px))}
 .app.land .skills{right:calc(5px + var(--ir,0px));bottom:calc(5px + var(--ib,0px))}
+/* on long, narrow phones the strip beside the scene is wide: the skill buttons keep a thumb's size at the right edge instead of filling it */
+.app.land .skills{left:auto;width:min(130px,calc(100% - var(--sw) - 10px - var(--ir,0px)));grid-template-rows:auto repeat(4,minmax(0,84px));align-content:center}
 .app.land .panel{padding-right:calc(8px + var(--ir,0px))}
 .app.land .brief{padding-left:calc(12px + var(--il,0px))}
 .app.port .mid{padding-top:var(--it,0px)}
