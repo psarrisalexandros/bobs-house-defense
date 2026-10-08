@@ -10,11 +10,22 @@ on:
         description: 'Version shown in the store (for example 1.0)'
         required: true
         default: '1.0'
+      runner:
+        description: 'GitHub Mac to build on (try another one if the build waits in the queue and is cancelled)'
+        required: true
+        default: 'macos-15-intel'
+        type: choice
+        options: [macos-15-intel, macos-15, macos-26]
 jobs:
   release:
-    runs-on: macos-26
-    timeout-minutes: 45
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 60
     steps:
+      - name: Use Xcode 26 (App Store uploads need the iOS 26 SDK)
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | tail -1)
+          if [ -n "$X" ]; then sudo xcode-select -s "$X"; fi
+          xcodebuild -version
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
