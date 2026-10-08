@@ -1,7 +1,8 @@
 # Builds the signed iPhone app and uploads it to App Store Connect (TestFlight).
 # Run it by hand: GitHub > Actions > "iOS to TestFlight" > Run workflow.
-# It needs four repository secrets, described in docs/APP-STORE-STEPS.md:
-#   APPLE_TEAM_ID, ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8
+# It needs seven repository secrets, described in docs/APP-STORE-STEPS.md:
+#   APPLE_TEAM_ID, ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (upload)
+#   IOS_DIST_P12_BASE64, IOS_DIST_P12_PASSWORD, IOS_PROFILE_BASE64 (Apple Distribution signing)
 name: iOS to TestFlight
 on:
   workflow_dispatch:
@@ -54,23 +55,67 @@ jobs:
             exit 1
           fi
           echo "The App Store Connect key reads correctly (${#BODY} characters)."
+      - name: Install the distribution certificate and the App Store profile
+        env:
+          P12_BASE64: ${{ secrets.IOS_DIST_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.IOS_DIST_P12_PASSWORD }}
+          PROFILE_BASE64: ${{ secrets.IOS_PROFILE_BASE64 }}
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          for v in P12_BASE64 P12_PASSWORD PROFILE_BASE64; do
+            if [ -z "${!v}" ]; then echo "::error::A signing secret is missing (IOS_DIST_P12_BASE64, IOS_DIST_P12_PASSWORD, IOS_PROFILE_BASE64). See docs/APP-STORE-STEPS.md, step 4."; exit 1; fi
+          done
+          S="$RUNNER_TEMP/signing"; mkdir -p "$S"
+          printf '%s' "$P12_BASE64" | tr -d ' \r\n' | base64 --decode > "$S/dist.p12"
+          printf '%s' "$PROFILE_BASE64" | tr -d ' \r\n' | base64 --decode > "$S/app.mobileprovision"
+          # A keychain of its own, deleted at the end of the run
+          KC="$S/build.keychain-db"; KCPW=$(uuidgen)
+          security create-keychain -p "$KCPW" "$KC"
+          security set-keychain-settings -lut 3600 "$KC"
+          security unlock-keychain -p "$KCPW" "$KC"
+          security import "$S/dist.p12" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KC"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KCPW" "$KC" > /dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          security find-identity -v -p codesigning "$KC"
+          # The provisioning profile
+          security cms -D -i "$S/app.mobileprovision" > "$S/profile.plist"
+          UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$S/profile.plist")
+          NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$S/profile.plist")
+          echo "Profile: $NAME ($UUID), expires $(/usr/libexec/PlistBuddy -c 'Print :ExpirationDate' "$S/profile.plist")"
+          for d in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
+            mkdir -p "$d"; cp "$S/app.mobileprovision" "$d/$UUID.mobileprovision"
+          done
+          echo "PROFILE_NAME=$NAME" >> "$GITHUB_ENV"
+          echo "SIGN_KEYCHAIN=$KC" >> "$GITHUB_ENV"
+          # Manual distribution signing for the App target's Release build only
+          # (the Swift packages are not signed separately and must not get a profile).
+          python3 - "$NAME" "$TEAM" <<'PY'
+          import sys, re
+          name, team = sys.argv[1], sys.argv[2]
+          p = 'app/ios/App/App.xcodeproj/project.pbxproj'
+          s = open(p).read()
+          m = re.search(r'(/\* Release \*/ = \{\s*isa = XCBuildConfiguration;\s*buildSettings = \{)([^}]*?PRODUCT_BUNDLE_IDENTIFIER = com\.bobshousedefense\.game;[^}]*?)(\};\s*name = Release;)', s)
+          if not m:
+              sys.exit('App target Release settings not found in project.pbxproj')
+          body = m.group(2).replace('CODE_SIGN_STYLE = Automatic;', 'CODE_SIGN_STYLE = Manual;')
+          body = body.rstrip() + '\n'
+          body += ('\t\t\t\tCODE_SIGN_IDENTITY = "Apple Distribution";\n'
+                   '\t\t\t\tDEVELOPMENT_TEAM = %s;\n'
+                   '\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "%s";\n\t\t\t' % (team, name))
+          open(p, 'w').write(s[:m.start(2)] + body + s[m.end(2):])
+          print('App target Release: manual signing with', name)
+          PY
       - name: Archive
         env:
           TEAM: ${{ secrets.APPLE_TEAM_ID }}
-          KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ISSUER: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           set -o pipefail
-          # The archive is only signed locally ("-"), with the app's entitlements (iCloud).
-          # A fresh GitHub Mac has no development certificate, and asking Apple for one on every
-          # run fails ("certificate for this machine ... private key is not installed").
-          # The real App Store signature is applied in the next step by Apple's cloud signing.
           xcodebuild -project app/ios/App/App.xcodeproj -scheme App -configuration Release \
             -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/App.xcarchive" \
-            DEVELOPMENT_TEAM="$TEAM" MARKETING_VERSION="${{ inputs.version }}" CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
-            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="-" PROVISIONING_PROFILE_SPECIFIER="" PROVISIONING_PROFILE="" \
-            archive | tail -40
-          codesign -d --entitlements - "$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app" 2>&1 | tail -15
+            MARKETING_VERSION="${{ inputs.version }}" CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            OTHER_CODE_SIGN_FLAGS="--keychain $SIGN_KEYCHAIN" archive | tail -40
+          echo "Entitlements of the archived app:"
+          codesign -d --entitlements - "$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app" 2>&1 | tail -20
       - name: Upload to App Store Connect
         env:
           TEAM: ${{ secrets.APPLE_TEAM_ID }}
@@ -85,12 +130,18 @@ jobs:
             <key>method</key><string>app-store-connect</string>
             <key>destination</key><string>upload</string>
             <key>teamID</key><string>$TEAM</string>
-            <key>signingStyle</key><string>automatic</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>signingCertificate</key><string>Apple Distribution</string>
+            <key>provisioningProfiles</key><dict>
+              <key>com.bobshousedefense.game</key><string>$PROFILE_NAME</string>
+            </dict>
           </dict></plist>
           PLIST
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" -exportOptionsPlist "$RUNNER_TEMP/export.plist" \
-            -exportPath "$RUNNER_TEMP/out" -allowProvisioningUpdates -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey.p8" \
+            -exportPath "$RUNNER_TEMP/out" -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey.p8" \
             -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER" | tail -40
-      - name: Remove the key
+      - name: Remove the key and the signing files
         if: always()
-        run: rm -rf "$RUNNER_TEMP/keys"
+        run: |
+          rm -rf "$RUNNER_TEMP/keys" "$RUNNER_TEMP/signing"
+          [ -n "$SIGN_KEYCHAIN" ] && security delete-keychain "$SIGN_KEYCHAIN" 2>/dev/null || true

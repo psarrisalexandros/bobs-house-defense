@@ -45,8 +45,13 @@ No Mac is needed for this route.
    - `ASC_KEY_ID`: the Key ID
    - `ASC_ISSUER_ID`: the Issuer ID
    - `ASC_KEY_P8`: the whole text of the `.p8` file
-4. GitHub > Actions > **iOS to TestFlight** > Run workflow. After about 15 minutes the build appears in App Store Connect > TestFlight.
-5. Install the **TestFlight** app on your iPhone and play the build.
+4. A permanent **Apple Distribution** certificate and an **App Store** provisioning profile sign the app (every GitHub Mac is new, so Xcode's automatic signing cannot keep a certificate between runs):
+   - The certificate request and its private key are in `Bobs House Defense/ios-distribution-certificate/` on your computer. Certificates, Identifiers & Profiles > Certificates > + > **Apple Distribution** > upload `distribution.csr` > download `distribution.cer` into the same folder.
+   - Profiles > + > **App Store Connect** > App ID `com.bobshousedefense.game` > that certificate > name it `Bobs House Defense App Store` > download it into the same folder.
+   - That folder then holds the `.p12` (certificate and key together), its password and both files as text. Add three more secrets: `IOS_DIST_P12_BASE64`, `IOS_DIST_P12_PASSWORD`, `IOS_PROFILE_BASE64`.
+   - The certificate lasts one year and the profile one year; renew both and update the three secrets when Apple warns.
+5. GitHub > Actions > **iOS to TestFlight** > Run workflow (version, and the GitHub Mac: keep `macos-15-intel` unless it waits in the queue). After about 15 minutes the build appears in App Store Connect > TestFlight.
+6. Install the **TestFlight** app on your iPhone and play the build.
 
 These secrets give full control of your developer account. Enter them yourself in GitHub; do not paste them into a chat.
 
