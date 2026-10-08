@@ -61,11 +61,16 @@ jobs:
           ISSUER: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           set -o pipefail
+          # The archive is only signed locally ("-"), with the app's entitlements (iCloud).
+          # A fresh GitHub Mac has no development certificate, and asking Apple for one on every
+          # run fails ("certificate for this machine ... private key is not installed").
+          # The real App Store signature is applied in the next step by Apple's cloud signing.
           xcodebuild -project app/ios/App/App.xcodeproj -scheme App -configuration Release \
             -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/App.xcarchive" \
             DEVELOPMENT_TEAM="$TEAM" MARKETING_VERSION="${{ inputs.version }}" CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
-            -allowProvisioningUpdates -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey.p8" \
-            -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER" archive | tail -40
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="-" PROVISIONING_PROFILE_SPECIFIER="" PROVISIONING_PROFILE="" \
+            archive | tail -40
+          codesign -d --entitlements - "$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app" 2>&1 | tail -15
       - name: Upload to App Store Connect
         env:
           TEAM: ${{ secrets.APPLE_TEAM_ID }}
